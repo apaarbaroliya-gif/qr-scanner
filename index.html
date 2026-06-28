@@ -1,9 +1,29 @@
+bash
+
+LOGO_B64=$(cat /tmp/logo_b64.txt)
+
+cat > /mnt/user-data/outputs/index.html << HTMLEOF
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>QR Scanner</title>
+<title>IJ Stock Transfer</title>
+
+<!-- PWA / Home Screen Meta -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IJ Stock Transfer">
+<meta name="theme-color" content="#0f1117">
+
+<!-- Inline manifest for home screen icon -->
+<link rel="manifest" href="data:application/json;base64,$(echo '{"name":"IJ Stock Transfer","short_name":"IJ Stock","start_url":".","display":"standalone","background_color":"#0f1117","theme_color":"#0f1117","icons":[{"src":"data:image/png;base64,LOGOPLACEHOLDER","sizes":"192x192","type":"image/png"},{"src":"data:image/png;base64,LOGOPLACEHOLDER","sizes":"512x512","type":"image/png"}]}' | base64 | tr -d '\n')">
+
+<!-- Apple touch icon (used when adding to iOS/Android home screen) -->
+<link rel="apple-touch-icon" href="data:image/png;base64,${LOGO_B64}">
+<link rel="icon" type="image/png" href="data:image/png;base64,${LOGO_B64}">
+
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,45 +34,41 @@
     --success: #34c985; --success-bg: rgba(52,201,133,0.12);
     --error: #f76f6f; --error-bg: rgba(247,111,111,0.12);
     --warning: #f7b955; --warning-bg: rgba(247,185,85,0.12);
-    --radius: 14px; --radius-sm: 8px;
+    --gold: #f5c842; --radius: 14px; --radius-sm: 8px;
   }
   body {
     background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: flex-start; padding: 0;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
   }
 
   /* HEADER */
   .app-header {
     width: 100%; background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 14px 20px; display: flex; align-items: center;
+    padding: 10px 16px; display: flex; align-items: center;
     justify-content: space-between; position: sticky; top: 0; z-index: 100;
   }
-  .app-header h1 { font-size: 17px; font-weight: 600; }
-  .header-user { font-size: 13px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-logo { height: 36px; width: 36px; border-radius: 8px; object-fit: cover; }
+  .header-title { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; flex:1; margin-left: 10px; }
+  .header-user { font-size: 12px; color: var(--muted); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .logout-btn {
     background: none; border: 1px solid var(--border); color: var(--muted);
-    border-radius: var(--radius-sm); padding: 5px 12px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    border-radius: var(--radius-sm); padding: 5px 10px; font-size: 12px; cursor: pointer; margin-left:8px;
   }
-  .logout-btn:hover { border-color: var(--error); color: var(--error); }
+  .logout-btn:active { border-color: var(--error); color: var(--error); }
 
   /* SCREENS */
-  .screen { display: none; width: 100%; max-width: 480px; padding: 28px 20px 40px; flex-direction: column; align-items: center; }
+  .screen { display: none; width: 100%; max-width: 480px; padding: 24px 18px 48px; flex-direction: column; align-items: center; }
   .screen.active { display: flex; }
 
-  /* BRAND */
-  .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; gap: 10px; }
-  .brand-icon {
-    width: 64px; height: 64px; background: var(--accent-bg); border-radius: 18px;
-    display: flex; align-items: center; justify-content: center; border: 1px solid rgba(79,110,247,0.3);
-  }
-  .brand-icon svg { width: 32px; height: 32px; color: var(--accent-light); }
-  .brand h2 { font-size: 22px; font-weight: 700; }
-  .brand p { font-size: 14px; color: var(--muted); text-align: center; }
+  /* BRAND / LOGIN LOGO */
+  .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; gap: 10px; }
+  .brand-logo { width: 100px; height: 100px; border-radius: 22px; object-fit: cover; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+  .brand h2 { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; color: var(--gold); }
+  .brand p { font-size: 13px; color: var(--muted); text-align: center; }
 
   /* CARD */
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px; width: 100%; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 18px; width: 100%; }
 
   /* FORM */
   .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
@@ -66,6 +82,39 @@
   input:focus, select:focus { border-color: var(--accent); }
   select option { background: var(--card); }
 
+  /* MACHINE SEARCH BOX */
+  .machine-search-wrap { position: relative; width: 100%; }
+  .machine-search-input {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-size: 15px; padding: 12px 14px 12px 38px; width: 100%;
+    outline: none; transition: border-color 0.2s;
+  }
+  .machine-search-input:focus { border-color: var(--accent); }
+  .machine-search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 16px; pointer-events: none;
+  }
+  .machine-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .machine-dropdown.open { display: block; }
+  .machine-option {
+    padding: 12px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .machine-option:last-child { border-bottom: none; }
+  .machine-option:hover, .machine-option.highlighted { background: var(--accent-bg); color: var(--accent-light); }
+  .machine-option .match-highlight { color: var(--gold); font-weight: 700; }
+  .machine-selected-badge {
+    display: none; margin-top: 6px; background: var(--success-bg);
+    border: 1px solid rgba(52,201,133,0.3); border-radius: var(--radius-sm);
+    padding: 8px 12px; font-size: 13px; color: var(--success); align-items: center; gap: 6px;
+  }
+  .machine-selected-badge.show { display: flex; }
+  .machine-clear { margin-left: auto; cursor: pointer; color: var(--muted); font-size: 16px; }
+
   /* BUTTONS */
   .btn {
     width: 100%; padding: 14px; border-radius: var(--radius-sm); font-size: 15px;
@@ -73,19 +122,16 @@
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: var(--accent-light); }
-  .btn-primary:active { transform: scale(0.98); }
-  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
   .btn-success { background: var(--success); color: #0a2218; }
-  .btn-success:hover { opacity: 0.9; }
   .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-outline { background: none; border: 1px solid var(--border); color: var(--text); }
-  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-outline:active { border-color: var(--accent); color: var(--accent); }
   .btn-warning { background: var(--warning); color: #1a1000; font-weight: 700; }
-  .btn-warning:hover { opacity: 0.9; }
 
   /* ALERTS */
-  .alert { width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; margin-top: 14px; display: none; }
+  .alert { width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; margin-top: 14px; display: none; line-height: 1.5; }
   .alert.show { display: block; }
   .alert-error { background: var(--error-bg); border: 1px solid rgba(247,111,111,0.3); color: var(--error); }
   .alert-success { background: var(--success-bg); border: 1px solid rgba(52,201,133,0.3); color: var(--success); }
@@ -93,23 +139,23 @@
   .alert-warning { background: var(--warning-bg); border: 1px solid rgba(247,185,85,0.3); color: var(--warning); }
 
   /* STEPS */
-  .steps { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; width: 100%; }
+  .steps { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; width: 100%; }
   .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
   .step-dot.active { background: var(--accent); }
   .step-dot.done { background: var(--success); }
   .step-line { flex: 1; height: 1px; background: var(--border); }
 
   /* HOME */
-  .welcome-text { font-size: 18px; font-weight: 600; margin-bottom: 4px; text-align: center; }
-  .welcome-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; text-align: center; }
+  .welcome-text { font-size: 18px; font-weight: 700; margin-bottom: 4px; text-align: center; }
+  .welcome-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; text-align: center; }
   .scan-btn-big {
-    width: 100%; padding: 22px; background: var(--accent); border: none;
-    border-radius: var(--radius); color: #fff; font-size: 17px; font-weight: 700;
-    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.2s;
+    width: 100%; padding: 24px 22px; background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border: none; border-radius: var(--radius); color: #fff; font-size: 18px; font-weight: 800;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(79,110,247,0.35);
   }
-  .scan-btn-big:hover { background: var(--accent-light); }
-  .scan-btn-big:active { transform: scale(0.98); }
-  .scan-btn-big svg { width: 40px; height: 40px; }
+  .scan-btn-big:active { transform: scale(0.97); }
+  .scan-btn-big svg { width: 44px; height: 44px; }
 
   /* SCANNER */
   #qr-reader { width: 100%; border-radius: var(--radius); overflow: hidden; border: 2px solid var(--accent); background: #000; min-height: 280px; }
@@ -123,88 +169,103 @@
   }
   #qr-reader__dashboard { background: var(--card) !important; padding: 12px !important; }
 
-  /* CAMERA PERMISSION OVERLAY */
+  /* CAMERA OVERLAY */
   .cam-overlay {
     width: 100%; background: var(--card); border: 2px dashed var(--border);
-    border-radius: var(--radius); padding: 32px 20px; display: flex;
-    flex-direction: column; align-items: center; gap: 14px; text-align: center;
+    border-radius: var(--radius); padding: 28px 18px; display: flex;
+    flex-direction: column; align-items: center; gap: 12px; text-align: center;
   }
-  .cam-overlay-icon { font-size: 48px; }
-  .cam-overlay h3 { font-size: 17px; font-weight: 600; }
+  .cam-overlay-icon { font-size: 44px; }
+  .cam-overlay h3 { font-size: 16px; font-weight: 600; }
   .cam-overlay p { font-size: 14px; color: var(--muted); line-height: 1.6; }
-  .cam-overlay .steps-list {
-    background: var(--surface); border-radius: var(--radius-sm); padding: 14px 16px;
-    width: 100%; text-align: left;
-  }
+  .cam-overlay .steps-list { background: var(--surface); border-radius: var(--radius-sm); padding: 12px 14px; width: 100%; text-align: left; }
   .cam-overlay .steps-list p { margin-bottom: 8px; font-size: 13px; color: var(--text); }
   .cam-overlay .steps-list p:last-child { margin-bottom: 0; }
   .cam-overlay .steps-list span { color: var(--accent-light); font-weight: 600; }
 
-  /* MODAL OVERLAY */
-  .modal-backdrop {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-    z-index: 999; align-items: center; justify-content: center; padding: 20px;
-  }
+  /* MODALS */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
   .modal-backdrop.show { display: flex; }
-  .modal {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 28px 22px; max-width: 360px; width: 100%; text-align: center;
-  }
-  .modal-icon { font-size: 52px; margin-bottom: 12px; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 20px; max-width: 360px; width: 100%; text-align: center; }
+  .modal-icon { font-size: 48px; margin-bottom: 10px; }
   .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-  .modal p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
-  .modal .steps-box {
-    background: var(--surface); border-radius: var(--radius-sm);
-    padding: 14px 16px; margin-bottom: 20px; text-align: left;
-  }
+  .modal p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .modal .steps-box { background: var(--surface); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; text-align: left; }
   .modal .steps-box p { font-size: 13px; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
   .modal .steps-box p:last-child { margin-bottom: 0; }
   .modal .steps-box b { color: var(--accent-light); }
   .modal-btns { display: flex; flex-direction: column; gap: 10px; }
 
-  /* RESULTS */
-  .qr-result-box {
-    background: var(--success-bg); border: 1px solid rgba(52,201,133,0.4);
-    border-radius: var(--radius-sm); padding: 12px 14px; width: 100%; margin-bottom: 16px;
+  /* UPDATE BANNER */
+  .update-banner {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
+    background: linear-gradient(135deg, #1a2a1a, #1e2e1e);
+    border-top: 2px solid var(--success); padding: 14px 18px;
+    flex-direction: column; gap: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
+  .update-banner.show { display: flex; }
+  .update-banner-title { font-size: 15px; font-weight: 700; color: var(--success); display: flex; align-items: center; gap: 8px; }
+  .update-banner-body { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .update-banner-btns { display: flex; gap: 10px; }
+  .update-banner-btns button { flex: 1; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+  .btn-update { background: var(--success); color: #0a2218; }
+  .btn-dismiss { background: var(--surface); color: var(--muted); border: 1px solid var(--border) !important; }
+
+  /* QR RESULT */
+  .qr-result-box { background: var(--success-bg); border: 1px solid rgba(52,201,133,0.4); border-radius: var(--radius-sm); padding: 12px 14px; width: 100%; margin-bottom: 14px; }
   .qr-result-label { font-size: 12px; color: var(--success); margin-bottom: 4px; font-weight: 500; }
   .qr-result-value { font-size: 14px; word-break: break-all; }
 
   /* HISTORY */
-  .history-item {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; font-size: 13px;
-  }
-  .history-item-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .history-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; margin-bottom: 9px; font-size: 13px; }
+  .history-item-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
   .history-qr { color: var(--text); font-weight: 500; word-break: break-all; }
   .history-time { color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: 8px; }
   .history-meta { color: var(--muted); }
-  .section-title {
-    font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px;
-    text-transform: uppercase; margin-bottom: 12px; margin-top: 4px; width: 100%;
-  }
+  .section-title { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; margin-top: 2px; width: 100%; }
 
   /* SPINNER */
-  .spinner {
-    width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
-  }
+  .spinner { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<!-- CAMERA PERMISSION MODAL -->
+<!-- ══ UPDATE AVAILABLE BANNER ══ -->
+<div class="update-banner" id="update-banner">
+  <div class="update-banner-title">🔄 Update Available</div>
+  <div class="update-banner-body" id="update-banner-body">A new version of IJ Stock Transfer is available. Reinstall the app to get the latest features.</div>
+  <div class="update-banner-btns">
+    <button class="btn-update" onclick="showUpdateInstructions()">How to Update</button>
+    <button class="btn-dismiss" onclick="dismissUpdate()">Later</button>
+  </div>
+</div>
+
+<!-- ══ UPDATE INSTRUCTIONS MODAL ══ -->
+<div class="modal-backdrop" id="modal-update">
+  <div class="modal">
+    <div class="modal-icon">🔄</div>
+    <h3>How to Update the App</h3>
+    <p>Follow these steps to get the latest version on your phone:</p>
+    <div class="steps-box">
+      <p><b>Step 1:</b> Open Chrome on your Android phone</p>
+      <p><b>Step 2:</b> Go to your app URL:<br><span id="update-url" style="color:var(--gold);font-size:12px;word-break:break-all"></span></p>
+      <p><b>Step 3:</b> Tap the <b>⋮ three-dot menu</b> → tap <b>"Add to Home screen"</b></p>
+      <p><b>Step 4:</b> Tap <b>Add</b> to replace the old icon</p>
+      <p><b>Step 5:</b> Open the new icon — you're updated! ✅</p>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="document.getElementById('modal-update').classList.remove('show')">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CAMERA PERMISSION MODAL ══ -->
 <div class="modal-backdrop" id="modal-camera">
   <div class="modal">
     <div class="modal-icon">📷</div>
     <h3>Camera Access Needed</h3>
-    <p>This app needs your camera to scan QR codes. Please allow access when your browser asks.</p>
-    <div class="steps-box">
-      <p><b>Step 1:</b> Tap "Allow Camera" below</p>
-      <p><b>Step 2:</b> When Chrome asks <em>"Allow camera access?"</em> — tap <b>Allow</b></p>
-      <p><b>Step 3:</b> The scanner will open automatically</p>
-    </div>
+    <p>Tap "Allow Camera" below, then tap <b>Allow</b> when Chrome asks.</p>
     <div class="modal-btns">
       <button class="btn btn-warning" onclick="requestCameraAndStart()">📷 Allow Camera &amp; Start Scanning</button>
       <button class="btn btn-outline" style="font-size:13px" onclick="closeCameraModal()">Cancel</button>
@@ -212,17 +273,17 @@
   </div>
 </div>
 
-<!-- CAMERA BLOCKED MODAL -->
+<!-- ══ CAMERA BLOCKED MODAL ══ -->
 <div class="modal-backdrop" id="modal-blocked">
   <div class="modal">
     <div class="modal-icon">🚫</div>
     <h3>Camera Access Blocked</h3>
-    <p>You previously denied camera access. Follow these steps to fix it in Chrome:</p>
+    <p>Follow these steps to unblock the camera in Chrome:</p>
     <div class="steps-box">
       <p><b>Step 1:</b> Tap the <b>🔒 lock icon</b> in Chrome's address bar</p>
       <p><b>Step 2:</b> Tap <b>Permissions</b></p>
-      <p><b>Step 3:</b> Find <b>Camera</b> and set it to <b>Allow</b></p>
-      <p><b>Step 4:</b> Come back here and tap <b>Try Again</b></p>
+      <p><b>Step 3:</b> Set <b>Camera</b> to <b>Allow</b></p>
+      <p><b>Step 4:</b> Come back and tap <b>Try Again</b></p>
     </div>
     <div class="modal-btns">
       <button class="btn btn-primary" onclick="retryAfterUnblock()">🔄 Try Again</button>
@@ -231,26 +292,19 @@
   </div>
 </div>
 
-<!-- HEADER -->
+<!-- ══ HEADER ══ -->
 <header class="app-header" id="app-header" style="display:none">
-  <h1>📦 QR Scanner</h1>
-  <div style="display:flex;align-items:center;gap:10px">
-    <span class="header-user" id="header-email"></span>
-    <button class="logout-btn" onclick="logout()">Logout</button>
-  </div>
+  <img class="header-logo" src="data:image/png;base64,${LOGO_B64}" alt="IJ Logo">
+  <span class="header-title">IJ Stock Transfer</span>
+  <span class="header-user" id="header-email"></span>
+  <button class="logout-btn" onclick="logout()">Logout</button>
 </header>
 
-<!-- SCREEN 1 — EMAIL -->
+<!-- ══ SCREEN 1: EMAIL ══ -->
 <div class="screen active" id="screen-email">
   <div class="brand">
-    <div class="brand-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-        <rect x="3" y="14" width="7" height="7" rx="1"/>
-        <path d="M14 14h2v2h-2zM18 14h3M14 18h2M18 18h3M14 21h5"/>
-      </svg>
-    </div>
-    <h2>QR Scanner</h2>
+    <img class="brand-logo" src="data:image/png;base64,${LOGO_B64}" alt="IJ Stock Transfer Logo">
+    <h2>IJ STOCK TRANSFER</h2>
     <p>Sign in to start scanning</p>
   </div>
   <div class="steps">
@@ -263,24 +317,19 @@
       <label>Email address</label>
       <input type="email" id="input-email" placeholder="you@example.com" autocomplete="email" inputmode="email">
     </div>
-    <div style="margin-top:18px">
+    <div style="margin-top:16px">
       <button class="btn btn-primary" id="btn-verify-email" onclick="verifyEmail()">Continue</button>
     </div>
     <div class="alert alert-error" id="alert-email"></div>
   </div>
 </div>
 
-<!-- SCREEN 2 — PASSWORD -->
+<!-- ══ SCREEN 2: PASSWORD ══ -->
 <div class="screen" id="screen-password">
   <div class="brand">
-    <div class="brand-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        <circle cx="12" cy="16" r="1" fill="currentColor"/>
-      </svg>
-    </div>
-    <h2>Enter Password</h2>
-    <p id="pw-email-display" style="font-size:14px;color:var(--muted)"></p>
+    <img class="brand-logo" src="data:image/png;base64,${LOGO_B64}" alt="IJ Stock Transfer Logo">
+    <h2>IJ STOCK TRANSFER</h2>
+    <p id="pw-email-display" style="font-size:13px;color:var(--muted)"></p>
   </div>
   <div class="steps">
     <div class="step-dot done"></div><div class="step-line"></div>
@@ -292,15 +341,15 @@
       <label>Password</label>
       <input type="password" id="input-password" placeholder="Enter password" autocomplete="current-password">
     </div>
-    <div style="margin-top:18px;display:flex;gap:10px">
-      <button class="btn btn-outline" style="width:auto;padding:14px 20px" onclick="goToEmail()">Back</button>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn btn-outline" style="width:auto;padding:14px 18px" onclick="goToEmail()">Back</button>
       <button class="btn btn-primary" id="btn-login" onclick="login()">Sign In</button>
     </div>
     <div class="alert alert-error" id="alert-password"></div>
   </div>
 </div>
 
-<!-- SCREEN 3 — HOME -->
+<!-- ══ SCREEN 3: HOME ══ -->
 <div class="screen" id="screen-home">
   <p class="welcome-text" id="welcome-name">Welcome back</p>
   <p class="welcome-sub">Tap below to scan a new item</p>
@@ -311,25 +360,24 @@
     </svg>
     Scan New Item
   </button>
-  <div style="height:28px"></div>
+  <div style="height:24px"></div>
   <div id="history-section" style="width:100%;display:none">
     <p class="section-title">Recent scans</p>
     <div id="history-list"></div>
   </div>
 </div>
 
-<!-- SCREEN 4 — SCAN -->
+<!-- ══ SCREEN 4: SCAN ══ -->
 <div class="screen" id="screen-scan">
-  <div style="width:100%;display:flex;align-items:center;gap:12px;margin-bottom:20px">
-    <button class="btn btn-outline" style="width:auto;padding:10px 16px;font-size:14px" onclick="goToHome()">← Back</button>
-    <span style="font-size:16px;font-weight:600">Scan QR Code</span>
+  <div style="width:100%;display:flex;align-items:center;gap:12px;margin-bottom:18px">
+    <button class="btn btn-outline" style="width:auto;padding:10px 14px;font-size:14px" onclick="goToHome()">← Back</button>
+    <span style="font-size:16px;font-weight:700">Scan QR Code</span>
   </div>
 
-  <!-- Camera permission prompt shown before scanner starts -->
   <div id="cam-permission-prompt" class="cam-overlay">
     <div class="cam-overlay-icon">📷</div>
     <h3>Camera Permission Required</h3>
-    <p>Tap the button below to allow camera access and start scanning QR codes.</p>
+    <p>Tap the button below to allow camera access.</p>
     <div class="steps-list">
       <p><span>1.</span> Tap "Allow Camera Access" below</p>
       <p><span>2.</span> Tap <strong>Allow</strong> when Chrome asks</p>
@@ -338,30 +386,28 @@
     <button class="btn btn-warning" style="width:100%;margin-top:4px" onclick="requestCameraAndStart()">📷 Allow Camera Access</button>
   </div>
 
-  <!-- The actual QR reader — hidden until permission granted -->
   <div id="qr-reader" style="width:100%;display:none"></div>
 
-  <!-- Camera error state -->
   <div id="cam-error-box" style="display:none;width:100%">
     <div class="cam-overlay">
       <div class="cam-overlay-icon">🚫</div>
-      <h3>Camera Blocked</h3>
-      <p>Camera access was denied. To fix this in Chrome on Android:</p>
+      <h3 id="cam-err-title">Camera Blocked</h3>
+      <p id="cam-err-body">Camera access was denied.</p>
       <div class="steps-list">
-        <p><span>1.</span> Tap the <strong>🔒 lock icon</strong> in Chrome's address bar (top of screen)</p>
-        <p><span>2.</span> Tap <strong>Permissions</strong></p>
-        <p><span>3.</span> Find <strong>Camera</strong> → set to <strong>Allow</strong></p>
-        <p><span>4.</span> Come back and tap Try Again below</p>
+        <p><span>1.</span> Tap the <strong>🔒 lock icon</strong> in Chrome's address bar</p>
+        <p><span>2.</span> Tap <strong>Permissions</strong> → <strong>Camera</strong> → <strong>Allow</strong></p>
+        <p><span>3.</span> Tap Try Again below</p>
       </div>
       <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="retryCamera()">🔄 Try Again</button>
     </div>
   </div>
 
-  <div class="alert alert-info show" id="scan-hint" style="margin-top:14px;display:none">
+  <div class="alert alert-info show" id="scan-hint" style="margin-top:12px;display:none">
     Point your camera at a QR code to scan it automatically.
   </div>
 
-  <div id="qr-scanned-section" style="display:none;width:100%;margin-top:20px">
+  <!-- POST-SCAN FORM -->
+  <div id="qr-scanned-section" style="display:none;width:100%;margin-top:16px">
     <div class="qr-result-box">
       <div class="qr-result-label">✓ QR Code Scanned</div>
       <div class="qr-result-value" id="qr-value-display"></div>
@@ -371,14 +417,30 @@
         <label>Quantity</label>
         <input type="number" id="input-quantity" placeholder="Enter quantity (min 1)" min="1" inputmode="numeric">
       </div>
-      <div class="form-group" style="margin-bottom:0">
+
+      <!-- MACHINE SEARCH DROPDOWN -->
+      <div class="form-group" style="margin-bottom:0;position:relative">
         <label>Machine Number</label>
-        <select id="select-machine">
-          <option value="">— Select Machine —</option>
-        </select>
+        <div class="machine-search-wrap">
+          <span class="machine-search-icon">🔍</span>
+          <input type="text" class="machine-search-input" id="machine-search"
+            placeholder="Search by last 4 digits or name..."
+            autocomplete="off"
+            oninput="filterMachines()"
+            onfocus="openMachineDropdown()"
+            onkeydown="machineKeyNav(event)">
+          <div class="machine-dropdown" id="machine-dropdown"></div>
+        </div>
+        <div class="machine-selected-badge" id="machine-badge">
+          <span id="machine-badge-text"></span>
+          <span class="machine-clear" onclick="clearMachine()" title="Clear">✕</span>
+        </div>
       </div>
     </div>
-    <div style="margin-top:16px">
+
+    <input type="hidden" id="selected-machine-value">
+
+    <div style="margin-top:14px">
       <button class="btn btn-success" id="btn-submit" onclick="submitData()">Submit to Sheet</button>
     </div>
     <div style="margin-top:10px">
@@ -389,17 +451,24 @@
 </div>
 
 <script>
-// ══════════════════════════════════════
-// CONFIGURATION
-// ══════════════════════════════════════
+// ════════════════════════════════════════
+// CONFIGURATION — paste your Apps Script URL below
+// ════════════════════════════════════════
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwqOQKWQ7k2IV3zYS57u8bggJmPkuR8xiNd0m0rG6vKOzSG7B7dqPiJYEhqA5OWOlY3RA/exec";
 
-// ══════════════════════════════════════
+// Version string — increment this (e.g. "1.1", "1.2") every time you push an update to GitHub
+// The app checks this against the deployed version and shows the update banner if they differ
+const APP_VERSION = "1.0";
+
+// ════════════════════════════════════════
 // STATE
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 let currentEmail = "";
 let correctPassword = "";
 let machineList = [];
+let filteredMachines = [];
+let selectedMachine = "";
+let highlightIndex = -1;
 let scannedQR = "";
 let scanHistory = [];
 try { scanHistory = JSON.parse(localStorage.getItem("qr_history") || "[]"); } catch(e) {}
@@ -407,57 +476,70 @@ let html5QrCode = null;
 let scannerRunning = false;
 let cameraPermissionGranted = false;
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
+// UPDATE CHECK
+// ════════════════════════════════════════
+async function checkForUpdates() {
+  try {
+    // Fetch a tiny version file from the same GitHub Pages repo
+    const res = await fetch("./version.txt?nocache=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return;
+    const remoteVersion = (await res.text()).trim();
+    if (remoteVersion && remoteVersion !== APP_VERSION) {
+      document.getElementById("update-url").textContent = window.location.href.split("?")[0];
+      document.getElementById("update-banner").classList.add("show");
+    }
+  } catch(e) { /* silently ignore — offline or version file missing */ }
+}
+
+function showUpdateInstructions() {
+  document.getElementById("update-url").textContent = window.location.href.split("?")[0];
+  document.getElementById("modal-update").classList.add("show");
+}
+function dismissUpdate() {
+  document.getElementById("update-banner").classList.remove("show");
+}
+
+// ════════════════════════════════════════
 // CAMERA PERMISSION
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 async function checkCameraPermission() {
-  // Use Permissions API if available
   if (navigator.permissions) {
     try {
-      const result = await navigator.permissions.query({ name: "camera" });
-      return result.state; // "granted", "denied", or "prompt"
+      const r = await navigator.permissions.query({ name: "camera" });
+      return r.state;
     } catch(e) {}
   }
-  return "prompt"; // default: assume we need to ask
+  return "prompt";
 }
 
 async function requestCameraAndStart() {
-  // Close any open modals
   document.getElementById("modal-camera").classList.remove("show");
   document.getElementById("modal-blocked").classList.remove("show");
-
-  // Hide prompt, show loading state
   document.getElementById("cam-permission-prompt").style.display = "none";
   document.getElementById("cam-error-box").style.display = "none";
-
   try {
-    // Explicitly request camera — this triggers the browser popup
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-    // Stop the test stream immediately; the QR library will open its own
     stream.getTracks().forEach(t => t.stop());
     cameraPermissionGranted = true;
     startScanner();
-  } catch (err) {
-    handleCameraError(err);
-  }
+  } catch(err) { handleCameraError(err); }
 }
 
 function handleCameraError(err) {
-  const errName = (err && err.name) || "";
+  const n = (err && err.name) || "";
   document.getElementById("cam-permission-prompt").style.display = "none";
   document.getElementById("qr-reader").style.display = "none";
   document.getElementById("scan-hint").style.display = "none";
   document.getElementById("cam-error-box").style.display = "block";
-
-  if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
-    // User denied — show blocked modal
+  if (n === "NotAllowedError" || n === "PermissionDeniedError") {
     document.getElementById("modal-blocked").classList.add("show");
-  } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
-    document.querySelector("#cam-error-box .cam-overlay h3").textContent = "No Camera Found";
-    document.querySelector("#cam-error-box .cam-overlay p").textContent = "No camera was detected on this device.";
-  } else if (errName === "NotReadableError") {
-    document.querySelector("#cam-error-box .cam-overlay h3").textContent = "Camera In Use";
-    document.querySelector("#cam-error-box .cam-overlay p").textContent = "Your camera is being used by another app. Close it and try again.";
+  } else if (n === "NotFoundError" || n === "DevicesNotFoundError") {
+    document.getElementById("cam-err-title").textContent = "No Camera Found";
+    document.getElementById("cam-err-body").textContent = "No camera detected on this device.";
+  } else if (n === "NotReadableError") {
+    document.getElementById("cam-err-title").textContent = "Camera In Use";
+    document.getElementById("cam-err-body").textContent = "Camera is being used by another app. Close it and try again.";
   }
 }
 
@@ -465,36 +547,26 @@ function retryCamera() {
   document.getElementById("cam-error-box").style.display = "none";
   document.getElementById("cam-permission-prompt").style.display = "flex";
 }
-
 function retryAfterUnblock() {
   document.getElementById("modal-blocked").classList.remove("show");
   document.getElementById("cam-error-box").style.display = "none";
   document.getElementById("cam-permission-prompt").style.display = "flex";
 }
+function closeCameraModal() { document.getElementById("modal-camera").classList.remove("show"); }
+function closeBlockedModal() { document.getElementById("modal-blocked").classList.remove("show"); goToHome(); }
 
-function closeCameraModal() {
-  document.getElementById("modal-camera").classList.remove("show");
-}
-function closeBlockedModal() {
-  document.getElementById("modal-blocked").classList.remove("show");
-  goToHome();
-}
-
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // NAVIGATION
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const isLoggedIn = id === "screen-home" || id === "screen-scan";
-  document.getElementById("app-header").style.display = isLoggedIn ? "flex" : "none";
+  const loggedIn = id === "screen-home" || id === "screen-scan";
+  document.getElementById("app-header").style.display = loggedIn ? "flex" : "none";
 }
-
 function goToEmail() { showScreen("screen-email"); }
-
 function goToHome() {
   stopScanner();
-  // Reset scan screen state
   document.getElementById("cam-permission-prompt").style.display = "flex";
   document.getElementById("qr-reader").style.display = "none";
   document.getElementById("cam-error-box").style.display = "none";
@@ -503,13 +575,11 @@ function goToHome() {
   showScreen("screen-home");
   renderHistory();
 }
-
 async function goToScan() {
   showScreen("screen-scan");
   document.getElementById("qr-scanned-section").style.display = "none";
   document.getElementById("cam-error-box").style.display = "none";
-
-  // Check if already granted — skip the prompt
+  clearMachine();
   const permState = await checkCameraPermission();
   if (permState === "granted" || cameraPermissionGranted) {
     document.getElementById("cam-permission-prompt").style.display = "none";
@@ -519,12 +589,10 @@ async function goToScan() {
     document.getElementById("cam-error-box").style.display = "block";
     document.getElementById("modal-blocked").classList.add("show");
   } else {
-    // "prompt" — show our friendly explanation first
     document.getElementById("cam-permission-prompt").style.display = "flex";
     document.getElementById("qr-reader").style.display = "none";
   }
 }
-
 function logout() {
   currentEmail = ""; correctPassword = "";
   stopScanner();
@@ -533,9 +601,9 @@ function logout() {
   showScreen("screen-email");
 }
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // EMAIL VERIFICATION
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 async function verifyEmail() {
   const email = document.getElementById("input-email").value.trim();
   const alertEl = document.getElementById("alert-email");
@@ -544,92 +612,147 @@ async function verifyEmail() {
   btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Checking...';
   hideAlert(alertEl);
   try {
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=getConfig`);
+    const res = await fetch(APPS_SCRIPT_URL + "?action=getConfig");
     const data = await res.json();
     if (!data.emails || !Array.isArray(data.emails)) throw new Error("Config error");
-    const normalizedEmails = data.emails.map(e => e.toLowerCase().trim());
-    if (!normalizedEmails.includes(email.toLowerCase())) {
-      showAlert(alertEl, "error", "This email is not authorised. Contact your administrator."); return;
-    }
+    const norm = data.emails.map(e => e.toLowerCase().trim());
+    if (!norm.includes(email.toLowerCase())) { showAlert(alertEl, "error", "This email is not authorised. Contact your administrator."); return; }
     correctPassword = data.password;
     machineList = data.machines || [];
     currentEmail = email;
     document.getElementById("pw-email-display").textContent = email;
     document.getElementById("header-email").textContent = email;
     showScreen("screen-password");
-  } catch (e) {
+  } catch(e) {
     showAlert(alertEl, "error", "Could not connect to server. Check your Apps Script URL.");
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Continue";
-  }
+  } finally { btn.disabled = false; btn.innerHTML = "Continue"; }
 }
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // LOGIN
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 function login() {
   const pw = document.getElementById("input-password").value;
   const alertEl = document.getElementById("alert-password");
   if (!pw) { showAlert(alertEl, "error", "Enter your password."); return; }
-  if (pw !== correctPassword) {
-    showAlert(alertEl, "error", "Incorrect password. Try again.");
-    document.getElementById("input-password").value = ""; return;
-  }
+  if (pw !== correctPassword) { showAlert(alertEl, "error", "Incorrect password. Try again."); document.getElementById("input-password").value = ""; return; }
   hideAlert(alertEl);
-  document.getElementById("welcome-name").textContent = `Welcome, ${currentEmail.split("@")[0]}`;
-  populateMachines();
+  document.getElementById("welcome-name").textContent = "Welcome, " + currentEmail.split("@")[0];
   showScreen("screen-home");
   renderHistory();
 }
 
-// ══════════════════════════════════════
-// MACHINES DROPDOWN
-// ══════════════════════════════════════
-function populateMachines() {
-  const sel = document.getElementById("select-machine");
-  sel.innerHTML = '<option value="">— Select Machine —</option>';
-  machineList.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m; opt.textContent = m; sel.appendChild(opt);
-  });
+// ════════════════════════════════════════
+// MACHINE SEARCH DROPDOWN
+// ════════════════════════════════════════
+function openMachineDropdown() {
+  filterMachines();
+  document.getElementById("machine-dropdown").classList.add("open");
+  document.addEventListener("click", closeMachineOnOutsideClick);
 }
 
-// ══════════════════════════════════════
+function closeMachineDropdown() {
+  document.getElementById("machine-dropdown").classList.remove("open");
+  document.removeEventListener("click", closeMachineOnOutsideClick);
+}
+
+function closeMachineOnOutsideClick(e) {
+  const wrap = document.querySelector(".machine-search-wrap");
+  if (wrap && !wrap.contains(e.target)) closeMachineDropdown();
+}
+
+function filterMachines() {
+  const q = document.getElementById("machine-search").value.trim().toLowerCase();
+  filteredMachines = q === ""
+    ? machineList
+    : machineList.filter(m => {
+        const ml = m.toLowerCase();
+        // match last 4 digits OR anywhere in name
+        const last4 = m.replace(/\D/g, "").slice(-4);
+        return ml.includes(q) || last4.includes(q);
+      });
+  highlightIndex = -1;
+  renderMachineDropdown(q);
+  document.getElementById("machine-dropdown").classList.add("open");
+}
+
+function renderMachineDropdown(q) {
+  const dd = document.getElementById("machine-dropdown");
+  if (filteredMachines.length === 0) {
+    dd.innerHTML = '<div class="machine-option" style="color:var(--muted);cursor:default">No machines found</div>';
+    return;
+  }
+  dd.innerHTML = filteredMachines.map((m, i) => {
+    // Highlight matching portion
+    let display = escHtml(m);
+    if (q) {
+      const idx = m.toLowerCase().indexOf(q.toLowerCase());
+      if (idx !== -1) {
+        display = escHtml(m.slice(0, idx))
+          + '<span class="match-highlight">' + escHtml(m.slice(idx, idx + q.length)) + '</span>'
+          + escHtml(m.slice(idx + q.length));
+      }
+    }
+    return '<div class="machine-option" data-idx="' + i + '" onclick="selectMachine(' + i + ')">' + display + '</div>';
+  }).join("");
+}
+
+function selectMachine(idx) {
+  selectedMachine = filteredMachines[idx];
+  document.getElementById("selected-machine-value").value = selectedMachine;
+  document.getElementById("machine-search").value = "";
+  document.getElementById("machine-badge-text").textContent = "✓ " + selectedMachine;
+  document.getElementById("machine-badge").classList.add("show");
+  closeMachineDropdown();
+}
+
+function clearMachine() {
+  selectedMachine = "";
+  document.getElementById("selected-machine-value").value = "";
+  document.getElementById("machine-search").value = "";
+  document.getElementById("machine-badge").classList.remove("show");
+}
+
+function machineKeyNav(e) {
+  const items = document.querySelectorAll(".machine-option");
+  if (e.key === "ArrowDown") {
+    highlightIndex = Math.min(highlightIndex + 1, items.length - 1);
+  } else if (e.key === "ArrowUp") {
+    highlightIndex = Math.max(highlightIndex - 1, 0);
+  } else if (e.key === "Enter" && highlightIndex >= 0) {
+    selectMachine(highlightIndex); return;
+  } else if (e.key === "Escape") {
+    closeMachineDropdown(); return;
+  }
+  items.forEach((el, i) => el.classList.toggle("highlighted", i === highlightIndex));
+  if (items[highlightIndex]) items[highlightIndex].scrollIntoView({ block: "nearest" });
+}
+
+// ════════════════════════════════════════
 // SCANNER
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 function startScanner() {
   if (scannerRunning) return;
   document.getElementById("qr-reader").innerHTML = "";
   document.getElementById("qr-reader").style.display = "block";
   document.getElementById("scan-hint").style.display = "block";
   document.getElementById("cam-permission-prompt").style.display = "none";
-
   html5QrCode = new Html5Qrcode("qr-reader");
-  const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-
   html5QrCode.start(
     { facingMode: "environment" },
-    config,
-    onScanSuccess,
-    () => {}
-  ).then(() => {
-    scannerRunning = true;
-  }).catch(err => {
-    handleCameraError(err);
-  });
+    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+    onScanSuccess, () => {}
+  ).then(() => { scannerRunning = true; }).catch(handleCameraError);
 }
 
 function stopScanner() {
-  if (html5QrCode && scannerRunning) {
-    html5QrCode.stop().catch(() => {});
-    scannerRunning = false;
-  }
+  if (html5QrCode && scannerRunning) { html5QrCode.stop().catch(() => {}); scannerRunning = false; }
 }
 
-function onScanSuccess(decodedText) {
+function onScanSuccess(text) {
   stopScanner();
-  scannedQR = decodedText;
-  document.getElementById("qr-value-display").textContent = decodedText;
+  scannedQR = text;
+  document.getElementById("qr-value-display").textContent = text;
   document.getElementById("qr-reader").style.display = "none";
   document.getElementById("scan-hint").style.display = "none";
   document.getElementById("qr-scanned-section").style.display = "block";
@@ -641,28 +764,28 @@ function onScanSuccess(decodedText) {
 function rescan() {
   scannedQR = "";
   document.getElementById("qr-scanned-section").style.display = "none";
+  clearMachine();
   startScanner();
 }
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // SUBMIT
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 async function submitData() {
   const alertEl = document.getElementById("alert-submit");
   const qty = parseInt(document.getElementById("input-quantity").value);
-  const machine = document.getElementById("select-machine").value;
+  const machine = document.getElementById("selected-machine-value").value;
   const btn = document.getElementById("btn-submit");
   if (!scannedQR) { showAlert(alertEl, "error", "No QR code scanned."); return; }
   if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be 1 or more."); return; }
-  if (!machine) { showAlert(alertEl, "error", "Select a machine number."); return; }
+  if (!machine) { showAlert(alertEl, "error", "Please select a machine number."); return; }
   btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving...';
   hideAlert(alertEl);
   const now = new Date();
   const date = now.toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" });
   const time = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-  const payload = { action:"addRow", date, time, qr:scannedQR, email:currentEmail, quantity:qty, machine };
   try {
-    const res = await fetch(APPS_SCRIPT_URL, { method:"POST", body:JSON.stringify(payload) });
+    const res = await fetch(APPS_SCRIPT_URL, { method:"POST", body: JSON.stringify({ action:"addRow", date, time, qr:scannedQR, email:currentEmail, quantity:qty, machine }) });
     const data = await res.json();
     if (data.status === "ok") {
       showAlert(alertEl, "success", "✓ Data saved to Google Sheet!");
@@ -672,41 +795,39 @@ async function submitData() {
       if (navigator.vibrate) navigator.vibrate([100,50,100]);
       setTimeout(() => { goToHome(); }, 1800);
     } else { throw new Error(data.message || "Unknown error"); }
-  } catch (e) {
+  } catch(e) {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
-  }
+  } finally { btn.disabled = false; btn.innerHTML = "Submit to Sheet"; }
 }
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // HISTORY
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 function renderHistory() {
   const section = document.getElementById("history-section");
   const list = document.getElementById("history-list");
   if (!scanHistory.length) { section.style.display = "none"; return; }
   section.style.display = "block";
-  list.innerHTML = scanHistory.slice(0,5).map(h => `
-    <div class="history-item">
-      <div class="history-item-top">
-        <span class="history-qr">${escHtml(h.qr)}</span>
-        <span class="history-time">${escHtml(h.time)}</span>
-      </div>
-      <div class="history-meta">Qty: ${h.qty} &nbsp;•&nbsp; ${escHtml(h.machine)} &nbsp;•&nbsp; ${escHtml(h.date)}</div>
-    </div>`).join("");
+  list.innerHTML = scanHistory.slice(0,5).map(h =>
+    '<div class="history-item"><div class="history-item-top"><span class="history-qr">' + escHtml(h.qr) + '</span><span class="history-time">' + escHtml(h.time) + '</span></div><div class="history-meta">Qty: ' + h.qty + ' &nbsp;•&nbsp; ' + escHtml(h.machine) + ' &nbsp;•&nbsp; ' + escHtml(h.date) + '</div></div>'
+  ).join("");
 }
 
-// ══════════════════════════════════════
+// ════════════════════════════════════════
 // HELPERS
-// ══════════════════════════════════════
-function showAlert(el, type, msg) { el.className = `alert alert-${type} show`; el.textContent = msg; }
+// ════════════════════════════════════════
+function showAlert(el, type, msg) { el.className = "alert alert-" + type + " show"; el.textContent = msg; }
 function hideAlert(el) { el.className = "alert"; el.textContent = ""; }
 function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 document.getElementById("input-email").addEventListener("keydown", e => { if(e.key==="Enter") verifyEmail(); });
 document.getElementById("input-password").addEventListener("keydown", e => { if(e.key==="Enter") login(); });
-document.getElementById("input-quantity").addEventListener("keydown", e => { if(e.key==="Enter") submitData(); });
+document.getElementById("input-quantity").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("machine-search").focus(); });
+
+// Run update check on load
+window.addEventListener("load", () => { setTimeout(checkForUpdates, 2000); });
 </script>
 </body>
 </html>
+HTMLEOF
+echo "Done: $(wc -c < /mnt/user-data/outputs/index.html) bytes"
