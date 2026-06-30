@@ -155,6 +155,14 @@ document.head.appendChild(link);
   }
   .order-badge.transfer { background: var(--blue-bg); color: #8fa8ff; border: 1px solid rgba(79,110,247,0.3); }
   .order-badge.move { background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(247,185,85,0.3); }
+  .order-badge.labor { background: rgba(167,124,247,0.12); color: #b89bff; border: 1px solid rgba(167,124,247,0.3); }
+
+  .cost-input-wrap { position: relative; width: 100%; }
+  .cost-prefix {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 15px; font-weight: 600; pointer-events: none;
+  }
+  .cost-input { padding-left: 32px !important; }
 
   .alert { width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; margin-top: 14px; display: none; line-height: 1.5; }
   .alert.show { display: block; }
@@ -242,6 +250,7 @@ document.head.appendChild(link);
   .history-type { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
   .history-type.transfer { background: var(--blue-bg); color: #8fa8ff; }
   .history-type.move { background: var(--accent-bg); color: var(--accent); }
+  .history-type.labor { background: rgba(167,124,247,0.12); color: #b89bff; }
   .section-title { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px; width: 100%; }
 
   .spinner { width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #1a1000; border-radius: 50%; animation: spin 0.7s linear infinite; }
@@ -399,6 +408,14 @@ document.head.appendChild(link);
     </div>
   </div>
 
+  <div class="order-type-card" onclick="selectOrderType('Outside Labor')">
+    <div class="order-type-icon">👷</div>
+    <div class="order-type-text">
+      <h4>Outside Labor</h4>
+      <p>No QR scan — enter labor and cost details</p>
+    </div>
+  </div>
+
   <div style="height:14px"></div>
   <div id="history-section" style="width:100%;display:none">
     <p class="section-title">Recent scans</p>
@@ -412,15 +429,59 @@ document.head.appendChild(link);
     <button class="btn btn-outline" style="width:auto;padding:10px 16px;font-size:14px" onclick="goToOrderType()">← Back</button>
   </div>
   <span class="order-badge" id="order-type-badge"></span>
-  <p class="welcome-sub" style="margin-top:0">Tap below to scan a new item</p>
+  <p class="welcome-sub" style="margin-top:0" id="home-sub-text">Tap below to scan a new item</p>
 
-  <button class="scan-btn-big" onclick="goToScan()">
+  <button class="scan-btn-big" id="home-action-btn" onclick="goToScan()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
       <rect x="7" y="7" width="10" height="10" rx="1"/>
     </svg>
-    Scan New Item
+    <span id="home-action-text">Scan New Item</span>
   </button>
+</div>
+
+<!-- ══ SCREEN 4B: OUTSIDE LABOR FORM (no QR scan) ══ -->
+<div class="screen" id="screen-labor">
+  <div style="width:100%;display:flex;align-items:center;gap:12px;margin-bottom:18px">
+    <button class="btn btn-outline" style="width:auto;padding:10px 16px;font-size:14px" onclick="goToHome()">← Back</button>
+    <span style="font-size:16px;font-weight:700">Outside Labor Entry</span>
+  </div>
+  <span class="order-badge labor" style="margin-bottom:18px">👷 Outside Labor</span>
+
+  <div class="card">
+    <div class="form-group" id="group-labor-machine">
+      <label>Machine Number <span style="color:var(--muted);font-weight:400">(search by last 4 digits)</span></label>
+      <div class="machine-search-wrap">
+        <input type="text" class="machine-search-input" id="labormachine-search"
+          placeholder="Type last 4 digits to search..."
+          autocomplete="off" inputmode="numeric"
+          oninput="filterDropdown('labormachine')" onfocus="openDropdown('labormachine')" onblur="onDropdownBlur('labormachine')">
+        <span class="machine-search-icon">🔍</span>
+        <div class="machine-dropdown" id="labormachine-dropdown"></div>
+      </div>
+      <div class="machine-selected-badge" id="labormachine-badge"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Outside Labor</label>
+      <select id="select-outside-labor">
+        <option value="">— Select Outside Labor —</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+      <label>Cost</label>
+      <div class="cost-input-wrap">
+        <span class="cost-prefix">₹</span>
+        <input type="number" class="cost-input" id="input-cost" placeholder="Enter cost in INR" min="0" step="0.01" inputmode="decimal">
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;width:100%">
+    <button class="btn btn-success" id="btn-submit-labor" onclick="submitLaborData()">✔ Submit to Sheet</button>
+  </div>
+  <div class="alert" id="alert-submit-labor"></div>
 </div>
 
 <!-- ══ SCREEN 5: SCAN ══ -->
@@ -526,7 +587,7 @@ document.head.appendChild(link);
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwqOQKWQ7k2IV3zYS57u8bggJmPkuR8xiNd0m0rG6vKOzSG7B7dqPiJYEhqA5OWOlY3RA/exec";
 
 // App version — increment this (e.g. "1.1", "1.2") each time you push an update to GitHub
-const APP_VERSION = "2.0";
+const APP_VERSION = "3.0";
 
 // ══════════════════════════════════════════════════════
 // STATE
@@ -535,9 +596,11 @@ let currentEmail = "";
 let correctPassword = "";
 let machineList = [];
 let reasonList = [];
-let currentOrderType = ""; // "Transfer Order" or "Move Order"
+let laborList = [];
+let currentOrderType = ""; // "Transfer Order", "Move Order", or "Outside Labor"
 let selectedMachine = "";
 let selectedOutMachine = "";
+let selectedLaborMachine = "";
 let scannedQR = "";
 let scanHistory = [];
 try { scanHistory = JSON.parse(localStorage.getItem("qr_history") || "[]"); } catch(e) {}
@@ -611,7 +674,7 @@ function closeBlockedModal() { document.getElementById("modal-blocked").classLis
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const loggedIn = id === "screen-order-type" || id === "screen-home" || id === "screen-scan";
+  const loggedIn = id === "screen-order-type" || id === "screen-home" || id === "screen-scan" || id === "screen-labor";
   document.getElementById("app-header").style.display = loggedIn ? "flex" : "none";
 }
 function goToEmail() { showScreen("screen-email"); }
@@ -628,11 +691,22 @@ function selectOrderType(type) {
   if (type === "Move Order") {
     badge.textContent = "🔁 Move Order";
     badge.className = "order-badge move";
+  } else if (type === "Outside Labor") {
+    badge.textContent = "👷 Outside Labor";
+    badge.className = "order-badge transfer"; // placeholder, not shown on this screen
   } else {
     badge.textContent = "📦 Transfer Order";
     badge.className = "order-badge transfer";
   }
-  showScreen("screen-home");
+
+  if (type === "Outside Labor") {
+    resetDropdowns();
+    populateLaborOptions();
+    showScreen("screen-labor");
+  } else {
+    document.getElementById("home-action-text").textContent = "Scan New Item";
+    showScreen("screen-home");
+  }
 }
 
 function goToHome() {
@@ -698,6 +772,7 @@ async function verifyEmail() {
     correctPassword = data.password;
     machineList = data.machines || [];
     reasonList = data.reasons || [];
+    laborList = data.laborOptions || [];
     currentEmail = email;
     document.getElementById("pw-email-display").textContent = email;
     document.getElementById("header-email").textContent = email;
@@ -734,19 +809,33 @@ function populateReasons() {
   });
 }
 
+function populateLaborOptions() {
+  const sel = document.getElementById("select-outside-labor");
+  sel.innerHTML = '<option value="">— Select Outside Labor —</option>';
+  laborList.forEach(l => {
+    const opt = document.createElement("option");
+    opt.value = l; opt.textContent = l; sel.appendChild(opt);
+  });
+  document.getElementById("input-cost").value = "";
+}
+
 // ══════════════════════════════════════════════════════
 // SEARCHABLE MACHINE DROPDOWNS (generic for "machine" and "outmachine")
 // ══════════════════════════════════════════════════════
 function resetDropdowns() {
-  selectedMachine = ""; selectedOutMachine = "";
+  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = "";
   document.getElementById("machine-search").value = "";
   document.getElementById("outmachine-search").value = "";
+  document.getElementById("labormachine-search").value = "";
   document.getElementById("machine-badge").className = "machine-selected-badge";
   document.getElementById("machine-badge").textContent = "";
   document.getElementById("outmachine-badge").className = "machine-selected-badge";
   document.getElementById("outmachine-badge").textContent = "";
+  document.getElementById("labormachine-badge").className = "machine-selected-badge";
+  document.getElementById("labormachine-badge").textContent = "";
   document.getElementById("machine-dropdown").classList.remove("open");
   document.getElementById("outmachine-dropdown").classList.remove("open");
+  document.getElementById("labormachine-dropdown").classList.remove("open");
   document.getElementById("select-reason").value = "";
 }
 
@@ -770,7 +859,7 @@ function filterDropdown(which) {
   if (filtered.length === 0) {
     dropdown.innerHTML = '<div class="machine-no-results">No machines found</div>';
   } else {
-    const currentSelected = which === "machine" ? selectedMachine : selectedOutMachine;
+    const currentSelected = which === "machine" ? selectedMachine : (which === "outmachine" ? selectedOutMachine : selectedLaborMachine);
     filtered.forEach(m => {
       const div = document.createElement("div");
       div.className = "machine-option" + (m === currentSelected ? " selected" : "");
@@ -802,7 +891,8 @@ function selectDropdownValue(which, m) {
   badge.textContent = "✓ Selected: " + m;
   badge.className = "machine-selected-badge show";
   if (which === "machine") { selectedMachine = m; }
-  else { selectedOutMachine = m; }
+  else if (which === "outmachine") { selectedOutMachine = m; }
+  else { selectedLaborMachine = m; }
 }
 
 // ══════════════════════════════════════════════════════
@@ -894,6 +984,49 @@ async function submitData() {
 }
 
 // ══════════════════════════════════════════════════════
+// SUBMIT — OUTSIDE LABOR (no QR, no quantity)
+// ══════════════════════════════════════════════════════
+async function submitLaborData() {
+  const alertEl = document.getElementById("alert-submit-labor");
+  const btn = document.getElementById("btn-submit-labor");
+  const laborOption = document.getElementById("select-outside-labor").value;
+  const cost = document.getElementById("input-cost").value;
+
+  if (!selectedLaborMachine) { showAlert(alertEl,"error","Please select a Machine Number."); return; }
+  if (!laborOption) { showAlert(alertEl,"error","Please select Outside Labor."); return; }
+  if (cost === "" || isNaN(parseFloat(cost)) || parseFloat(cost) < 0) { showAlert(alertEl,"error","Please enter a valid cost."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving...';
+  hideAlert(alertEl);
+  const now = new Date();
+  const date = now.toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const time = now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+
+  const payload = {
+    action: "addRow", date, time, qr: "", email: currentEmail,
+    quantity: "", machine: selectedLaborMachine,
+    outMachine: "", reason: "",
+    outsideLabor: laborOption, cost: parseFloat(cost),
+    orderType: "Outside Labor"
+  };
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {method:"POST", body:JSON.stringify(payload)});
+    const data = await res.json();
+    if (data.status === "ok") {
+      showAlert(alertEl,"success","✓ Data saved to Google Sheet!");
+      scanHistory.unshift({date,time,qr:"",email:currentEmail,qty:"",machine:selectedLaborMachine,outMachine:"",reason:"",outsideLabor:laborOption,cost:cost,orderType:"Outside Labor"});
+      if (scanHistory.length>20) scanHistory.pop();
+      try { localStorage.setItem("qr_history",JSON.stringify(scanHistory)); } catch(e) {}
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
+      setTimeout(()=>{ goToOrderType(); }, 1800);
+    } else { throw new Error(data.message || "Unknown error"); }
+  } catch(e) {
+    showAlert(alertEl,"error","Failed to save: " + e.message);
+  } finally { btn.disabled=false; btn.innerHTML="✔ Submit to Sheet"; }
+}
+
+// ══════════════════════════════════════════════════════
 // HISTORY
 // ══════════════════════════════════════════════════════
 function renderHistory() {
@@ -902,19 +1035,25 @@ function renderHistory() {
   if (!scanHistory.length) { section.style.display="none"; return; }
   section.style.display="block";
   list.innerHTML = scanHistory.slice(0,5).map(h => {
-    const typeClass = h.orderType === "Move Order" ? "move" : "transfer";
-    const typeLabel = h.orderType === "Move Order" ? "🔁 Move Order" : "📦 Transfer Order";
-    let extra = "";
+    let typeClass = "transfer", typeLabel = "📦 Transfer Order", extra = "", mainLine;
     if (h.orderType === "Move Order") {
+      typeClass = "move"; typeLabel = "🔁 Move Order";
       extra = " &nbsp;•&nbsp; OUT: " + escHtml(h.outMachine||"") + " &nbsp;•&nbsp; " + escHtml(h.reason||"");
+      mainLine = 'Qty: ' + h.qty + ' &nbsp;•&nbsp; ' + escHtml(h.machine) + ' &nbsp;•&nbsp; ' + escHtml(h.date) + extra;
+    } else if (h.orderType === "Outside Labor") {
+      typeClass = "labor"; typeLabel = "👷 Outside Labor";
+      mainLine = escHtml(h.machine) + ' &nbsp;•&nbsp; ' + escHtml(h.outsideLabor||"") + ' &nbsp;•&nbsp; ₹' + escHtml(h.cost||"0") + ' &nbsp;•&nbsp; ' + escHtml(h.date);
+    } else {
+      mainLine = 'Qty: ' + h.qty + ' &nbsp;•&nbsp; ' + escHtml(h.machine) + ' &nbsp;•&nbsp; ' + escHtml(h.date);
     }
+    const qrLine = h.qr ? escHtml(h.qr) : '<span style="color:var(--muted);font-style:italic">No QR (Outside Labor)</span>';
     return '<div class="history-item">' +
       '<span class="history-type ' + typeClass + '">' + typeLabel + '</span>' +
       '<div class="history-item-top">' +
-        '<span class="history-qr">' + escHtml(h.qr) + '</span>' +
+        '<span class="history-qr">' + qrLine + '</span>' +
         '<span class="history-time">' + escHtml(h.time) + '</span>' +
       '</div>' +
-      '<div class="history-meta">Qty: ' + h.qty + ' &nbsp;•&nbsp; ' + escHtml(h.machine) + ' &nbsp;•&nbsp; ' + escHtml(h.date) + extra + '</div>' +
+      '<div class="history-meta">' + mainLine + '</div>' +
     '</div>';
   }).join("");
 }
@@ -934,6 +1073,7 @@ document.addEventListener("click", e => {
   if (!e.target.closest(".machine-search-wrap")) {
     document.getElementById("machine-dropdown").classList.remove("open");
     document.getElementById("outmachine-dropdown").classList.remove("open");
+    document.getElementById("labormachine-dropdown").classList.remove("open");
   }
 });
 </script>
