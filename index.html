@@ -299,11 +299,6 @@
       <span class="page-title">Machine PDI</span>
     </div>
     <div class="card">
-      <label>Machine Type</label>
-      <select id="pdi-machine-type-select" onchange="onPdiMachineTypeChange()">
-        <option value="">Select Machine Type</option>
-      </select>
-
       <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
       <div class="search-wrap">
         <input type="text" id="pdimachine-search" autocomplete="off" inputmode="numeric"
@@ -315,7 +310,7 @@
 
       <label>Section</label>
       <select id="pdi-section-select">
-        <option value="">Select Machine Type first</option>
+        <option value="">Loading sections...</option>
       </select>
     </div>
     <button class="btn btn-success" id="btn-start-pdi-section" onclick="startPdiSectionFlow()">Start Section</button>
@@ -343,22 +338,6 @@
       <button class="btn btn-success" onclick="startAnotherPdiSection()">Start Another Section</button>
       <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
     </div>
-  </div>
-
-  <!-- SCREEN: TASK MANAGER - MACHINE TYPE SELECT (shared by Assign Task / Mark Task as Completed) -->
-  <div class="screen" id="screen-task-type-select">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title" id="task-type-select-title">Assign Task</span>
-    </div>
-    <div class="card">
-      <label>Machine Type</label>
-      <select id="task-machine-type-select">
-        <option value="">Select Machine Type</option>
-      </select>
-    </div>
-    <button class="btn btn-success" id="btn-task-continue" onclick="loadTaskList()">Continue</button>
-    <div class="alert" id="alert-task-type-select"></div>
   </div>
 
   <!-- SCREEN: TASK MANAGER - LIST (shared by both modules) -->
@@ -392,8 +371,9 @@
 // ============================================================
 // CONFIG - paste your deployed Apps Script Web App URL here
 // ============================================================
-const API_URL = "https://script.google.com/macros/s/AKfycbxKMZu6XsJ1xxPT6hHdmyDFc-Lu3foQPE4_s1Si3WO2MVDOLmYoEkBMI6e-4qYuVB-tLQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxKMZu6XsJ1xxPT6hHdmyDFc-Lu3foQPE4_s1Si3WO2MVDOLmYoEkBMI6e-4qYuVB-tLQ/exec"; // <-- REPLACE with your /exec URL from Apps Script Deploy step
 const APP_VERSION = "1.0";
+const DEFAULT_MACHINE_TYPE = "3DX"; // only one Machine Type in use for now - PDI/Task modules skip the type picker
 
 // ============================================================
 // STATE
@@ -611,17 +591,15 @@ async function openModule(mod) {
     showScreen("screen-machine-movement");
     await loadDropdownData(); // refresh Machine Number / Location lists from the sheet
   } else if (mod === "Machine PDI") {
-    resetPdiSelectScreen();
-    showScreen("screen-pdi-select");
     await loadDropdownData();
-    populatePdiMachineTypes();
+    resetPdiSelectScreen(); // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
+    showScreen("screen-pdi-select");
   } else if (mod === "Assign Task" || mod === "Mark Task as Completed") {
     taskMode = (mod === "Assign Task") ? "assign" : "complete";
-    resetTaskTypeSelectScreen();
-    document.getElementById("task-type-select-title").textContent = mod;
-    showScreen("screen-task-type-select");
+    taskMachineType = DEFAULT_MACHINE_TYPE;
     await loadDropdownData();
-    populateMachineTypesInto("task-machine-type-select");
+    showScreen("screen-task-list");
+    await loadTaskList();
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -910,43 +888,13 @@ function submitNewMovementResponse() {
 // ============================================================
 // MACHINE PDI
 // ============================================================
-function populatePdiMachineTypes() {
-  populateMachineTypesInto("pdi-machine-type-select");
-}
-
-function populateMachineTypesInto(selectId) {
-  const sel = document.getElementById(selectId);
-  const currentVal = sel.value;
-  sel.innerHTML = '<option value="">Select Machine Type</option>';
-  const seen = {};
-  (dropdownData.machineTypes || []).forEach(mt => {
-    if (mt.type && !seen[mt.type]) {
-      seen[mt.type] = true;
-      const opt = document.createElement("option");
-      opt.value = mt.type; opt.textContent = mt.type;
-      sel.appendChild(opt);
-    }
-  });
-  if (currentVal && seen[currentVal]) sel.value = currentVal;
-}
-
 function resetPdiSelectScreen() {
   resetDropdownSelections();
-  document.getElementById("pdi-machine-type-select").value = "";
-  document.getElementById("pdi-section-select").innerHTML = '<option value="">Select Machine Type first</option>';
   hideAlert(document.getElementById("alert-pdi-select"));
-  pdiMachineType = ""; pdiSpreadsheetId = ""; pdiSection = "";
+  pdiMachineType = DEFAULT_MACHINE_TYPE; pdiSpreadsheetId = ""; pdiSection = "";
   pdiPages = []; pdiCurrentPageIndex = 0; pdiSelections = {};
-}
-
-async function onPdiMachineTypeChange() {
-  const machineType = document.getElementById("pdi-machine-type-select").value;
-  pdiMachineType = machineType;
-  if (!machineType) {
-    document.getElementById("pdi-section-select").innerHTML = '<option value="">Select Machine Type first</option>';
-    return;
-  }
-  await refreshPdiSections();
+  document.getElementById("pdi-section-select").innerHTML = '<option value="">Loading sections...</option>';
+  refreshPdiSections();
 }
 
 async function refreshPdiSections() {
@@ -1105,19 +1053,16 @@ async function finishPdiSection() {
 }
 
 async function startAnotherPdiSection() {
-  resetPdiSelectScreen();
+  await loadDropdownData(); // refresh Machine Numbers from the sheet
+  resetPdiSelectScreen();   // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
   showScreen("screen-pdi-select");
-  await loadDropdownData(); // refresh Machine Types / Machine Numbers from the sheet
-  populatePdiMachineTypes();
 }
 
 // ============================================================
 // TASK MANAGER (Assign Task / Mark Task as Completed)
 // ============================================================
-function resetTaskTypeSelectScreen() {
-  document.getElementById("task-machine-type-select").value = "";
-  hideAlert(document.getElementById("alert-task-type-select"));
-  taskMachineType = ""; taskSpreadsheetId = "";
+function resetTaskManagerState() {
+  taskSpreadsheetId = "";
   allTaskItems = []; filteredTaskItems = [];
   taskDisplayCount = 20;
   taskFilterMachineVal = ""; taskFilterSectionVal = "";
@@ -1125,34 +1070,31 @@ function resetTaskTypeSelectScreen() {
 }
 
 async function loadTaskList() {
-  const alertEl = document.getElementById("alert-task-type-select");
-  const btn = document.getElementById("btn-task-continue");
+  const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
+  resetTaskManagerState();
 
-  taskMachineType = document.getElementById("task-machine-type-select").value;
-  if (!taskMachineType) { showAlert(alertEl, "error", "Please select a Machine Type."); return; }
+  const title = (taskMode === "assign") ? "Assign Task" : "Mark Task as Completed";
+  document.getElementById("task-list-title").textContent = title;
+  document.getElementById("task-filter-panel").classList.remove("open");
+  document.getElementById("task-count-text").textContent = "Loading tasks...";
+  document.getElementById("task-list-container").innerHTML = "";
+  document.getElementById("btn-load-more-tasks").style.display = "none";
 
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
   try {
     const data = await callApi("getTaskManagerItems", { machineType: taskMachineType, listType: taskMode });
     if (data.success) {
       taskSpreadsheetId = data.pdiSpreadsheetId;
       allTaskItems = data.items || [];
-      taskDisplayCount = 20;
-      taskFilterMachineVal = ""; taskFilterSectionVal = "";
       buildTaskFilterOptions();
       applyTaskFilters();
-      const title = (taskMode === "assign") ? "Assign Task" : "Mark Task as Completed";
-      document.getElementById("task-list-title").textContent = title;
-      document.getElementById("task-filter-panel").classList.remove("open");
-      showScreen("screen-task-list");
     } else {
+      document.getElementById("task-count-text").textContent = "";
       showAlert(alertEl, "error", data.error || "Could not load tasks.");
     }
   } catch (e) {
+    document.getElementById("task-count-text").textContent = "";
     showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Continue";
   }
 }
 
