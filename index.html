@@ -72,6 +72,13 @@
   .search-option mark { background: var(--accent); color:#1a1a1a; border-radius:3px; }
   .selected-badge { margin-top: 6px; font-size: 12px; color: var(--success); display:none; }
   .selected-badge.show { display:block; }
+  .option-item { display:flex; align-items:center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--border); }
+  .option-item:last-child { border-bottom:none; }
+  .option-item input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink:0; }
+  .option-item label { margin:0; color: var(--text); font-size: 14px; flex:1; cursor:pointer; }
+  .pdi-progress { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .pdi-nav-row { display:flex; gap: 10px; margin-top: 16px; }
+  .pdi-nav-row .btn { margin-top:0; flex:1; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -287,6 +294,59 @@
     </div>
   </div>
 
+  <!-- SCREEN: MACHINE PDI - SELECT MACHINE TYPE / NUMBER / SECTION -->
+  <div class="screen" id="screen-pdi-select">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Machine PDI</span>
+    </div>
+    <div class="card">
+      <label>Machine Type</label>
+      <select id="pdi-machine-type-select" onchange="onPdiMachineTypeChange()">
+        <option value="">Select Machine Type</option>
+      </select>
+
+      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="pdimachine-search" autocomplete="off" inputmode="numeric"
+          placeholder="Type to search..." oninput="filterDropdown('pdimachine')"
+          onfocus="filterDropdown('pdimachine')" onblur="onDropdownBlur('pdimachine')">
+        <div class="search-dropdown" id="pdimachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="pdimachine-badge"></div>
+
+      <label>Section</label>
+      <select id="pdi-section-select">
+        <option value="">Select Machine Type first</option>
+      </select>
+    </div>
+    <button class="btn btn-success" id="btn-start-pdi-section" onclick="startPdiSectionFlow()">Start Section</button>
+    <div class="alert" id="alert-pdi-select"></div>
+  </div>
+
+  <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS -->
+  <div class="screen" id="screen-pdi-pages">
+    <div class="topbar">
+      <button class="btn-outline" onclick="exitPdiSection()">&larr; Exit</button>
+      <span class="page-title" id="pdi-page-section-title">Section</span>
+    </div>
+    <div class="pdi-progress" id="pdi-progress-text">Page 1 of 1</div>
+    <div class="card">
+      <h4 id="pdi-page-name" style="margin-bottom:10px"></h4>
+      <div id="pdi-options-list"></div>
+    </div>
+    <div class="pdi-nav-row">
+      <button class="btn btn-outline" id="btn-pdi-prev" onclick="pdiPrevPage()">Previous</button>
+      <button class="btn btn-primary" id="btn-pdi-next" onclick="pdiNextPage()">Next</button>
+    </div>
+    <button class="btn btn-success" id="btn-pdi-finish" style="display:none" onclick="finishPdiSection()">Finish Section</button>
+    <div class="alert" id="alert-pdi-page"></div>
+    <div id="pdi-post-submit" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="startAnotherPdiSection()">Start Another Section</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
 </div>
 <div id="toast"></div>
 
@@ -309,6 +369,11 @@ let currentModuleType = ""; // "Transfer Order" or "Move Order"
 let scannedQR = "";
 let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
 let selectedMovementMachine = "", selectedLocation = "";
+let selectedPdiMachine = "";
+let pdiMachineType = "", pdiSpreadsheetId = "", pdiSection = "";
+let pdiPages = [];         // [{ pageName, options: [...] }]
+let pdiCurrentPageIndex = 0;
+let pdiSelections = {};    // { pageIndex: Set(optionString) }
 let html5QrCode = null;
 let scannerRunning = false;
 let torchOn = false;
@@ -500,6 +565,11 @@ async function openModule(mod) {
     resetMovementScreen();
     showScreen("screen-machine-movement");
     await loadDropdownData(); // refresh Machine Number / Location lists from the sheet
+  } else if (mod === "Machine PDI") {
+    resetPdiSelectScreen();
+    showScreen("screen-pdi-select");
+    await loadDropdownData();
+    populatePdiMachineTypes();
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -553,12 +623,13 @@ function selectDropdownValue(which, m) {
   else if (which === "outmachine") selectedOutMachine = m;
   else if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "location") selectedLocation = m;
+  else if (which === "pdimachine") selectedPdiMachine = m;
   else selectedLaborMachine = m;
 }
 
 function resetDropdownSelections() {
-  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location"].forEach(which => {
+  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -782,6 +853,200 @@ async function submitMovementData() {
 
 function submitNewMovementResponse() {
   resetMovementScreen();
+}
+
+// ============================================================
+// MACHINE PDI
+// ============================================================
+function populatePdiMachineTypes() {
+  const sel = document.getElementById("pdi-machine-type-select");
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">Select Machine Type</option>';
+  const seen = {};
+  (dropdownData.machineTypes || []).forEach(mt => {
+    if (mt.type && !seen[mt.type]) {
+      seen[mt.type] = true;
+      const opt = document.createElement("option");
+      opt.value = mt.type; opt.textContent = mt.type;
+      sel.appendChild(opt);
+    }
+  });
+  if (currentVal && seen[currentVal]) sel.value = currentVal;
+}
+
+function resetPdiSelectScreen() {
+  resetDropdownSelections();
+  document.getElementById("pdi-machine-type-select").value = "";
+  document.getElementById("pdi-section-select").innerHTML = '<option value="">Select Machine Type first</option>';
+  hideAlert(document.getElementById("alert-pdi-select"));
+  pdiMachineType = ""; pdiSpreadsheetId = ""; pdiSection = "";
+  pdiPages = []; pdiCurrentPageIndex = 0; pdiSelections = {};
+}
+
+async function onPdiMachineTypeChange() {
+  const machineType = document.getElementById("pdi-machine-type-select").value;
+  const sectionSel = document.getElementById("pdi-section-select");
+  const alertEl = document.getElementById("alert-pdi-select");
+  hideAlert(alertEl);
+  pdiMachineType = machineType;
+  sectionSel.innerHTML = '<option value="">Loading sections...</option>';
+  if (!machineType) {
+    sectionSel.innerHTML = '<option value="">Select Machine Type first</option>';
+    return;
+  }
+  try {
+    const data = await callApi("getPdiSections", { machineType });
+    if (data.success) {
+      pdiSpreadsheetId = data.pdiSpreadsheetId;
+      sectionSel.innerHTML = '<option value="">Select Section</option>';
+      (data.sections || []).forEach(s => {
+        const opt = document.createElement("option"); opt.value = s; opt.textContent = s; sectionSel.appendChild(opt);
+      });
+    } else {
+      sectionSel.innerHTML = '<option value="">No sections found</option>';
+      showAlert(alertEl, "error", data.error || "Could not load sections.");
+    }
+  } catch (e) {
+    sectionSel.innerHTML = '<option value="">Error loading sections</option>';
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+async function startPdiSectionFlow() {
+  const alertEl = document.getElementById("alert-pdi-select");
+  const btn = document.getElementById("btn-start-pdi-section");
+  hideAlert(alertEl);
+
+  const section = document.getElementById("pdi-section-select").value;
+  if (!pdiMachineType) { showAlert(alertEl, "error", "Please select a Machine Type."); return; }
+  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  if (!section) { showAlert(alertEl, "error", "Please select a Section."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Starting...';
+  try {
+    const data = await callApi("startPdiSection", {
+      machineType: pdiMachineType, machineNumber: selectedPdiMachine, section: section
+    });
+    if (data.success) {
+      pdiSection = section;
+      pdiSpreadsheetId = data.pdiSpreadsheetId;
+      pdiPages = data.pages || [];
+      pdiCurrentPageIndex = 0;
+      pdiSelections = {};
+      renderPdiPage();
+      showScreen("screen-pdi-pages");
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not start this Section.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Start Section";
+  }
+}
+
+function renderPdiPage() {
+  const idx = pdiCurrentPageIndex;
+  const page = pdiPages[idx];
+  const total = pdiPages.length;
+  hideAlert(document.getElementById("alert-pdi-page"));
+  document.getElementById("pdi-post-submit").style.display = "none";
+
+  document.getElementById("pdi-page-section-title").textContent = pdiSection;
+  document.getElementById("pdi-progress-text").textContent = "Page " + (idx + 1) + " of " + total;
+  document.getElementById("pdi-page-name").textContent = page.pageName;
+
+  const selectedSet = pdiSelections[idx] || new Set();
+  const listEl = document.getElementById("pdi-options-list");
+  listEl.innerHTML = "";
+  page.options.forEach((opt, optIdx) => {
+    const id = "pdi-opt-" + idx + "-" + optIdx;
+    const row = document.createElement("div");
+    row.className = "option-item";
+    row.innerHTML = '<input type="checkbox" id="' + id + '"' + (selectedSet.has(opt) ? " checked" : "") + '>' +
+      '<label for="' + id + '">' + escHtml(opt) + '</label>';
+    row.querySelector("input").addEventListener("change", (e) => {
+      togglePdiOption(idx, opt, e.target.checked);
+    });
+    listEl.appendChild(row);
+  });
+
+  document.getElementById("btn-pdi-prev").style.display = (idx === 0) ? "none" : "block";
+  const isLast = idx === total - 1;
+  document.getElementById("btn-pdi-next").style.display = isLast ? "none" : "block";
+  document.getElementById("btn-pdi-finish").style.display = isLast ? "block" : "none";
+}
+
+function togglePdiOption(pageIndex, option, isChecked) {
+  if (!pdiSelections[pageIndex]) pdiSelections[pageIndex] = new Set();
+  if (isChecked) pdiSelections[pageIndex].add(option);
+  else pdiSelections[pageIndex].delete(option);
+}
+
+function pdiNextPage() {
+  if (pdiCurrentPageIndex < pdiPages.length - 1) {
+    pdiCurrentPageIndex++;
+    renderPdiPage();
+  }
+}
+
+function pdiPrevPage() {
+  if (pdiCurrentPageIndex > 0) {
+    pdiCurrentPageIndex--;
+    renderPdiPage();
+  }
+}
+
+function exitPdiSection() {
+  if (Object.keys(pdiSelections).some(k => pdiSelections[k] && pdiSelections[k].size > 0)) {
+    if (!confirm("You have unsaved selections in this Section. Leaving now will discard them. Exit anyway?")) return;
+  }
+  goHome();
+}
+
+async function finishPdiSection() {
+  const alertEl = document.getElementById("alert-pdi-page");
+  const btn = document.getElementById("btn-pdi-finish");
+  hideAlert(alertEl);
+
+  const selections = [];
+  pdiPages.forEach((page, idx) => {
+    const set = pdiSelections[idx];
+    if (set) set.forEach(opt => selections.push({ page: page.pageName, option: opt }));
+  });
+
+  if (selections.length === 0) {
+    showAlert(alertEl, "error", "Please select at least one option before finishing this Section.");
+    return;
+  }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  try {
+    const data = await callApi("submitPdiSection", {
+      pdiSpreadsheetId: pdiSpreadsheetId, username: currentUser,
+      machineNumber: selectedPdiMachine, section: pdiSection, selections: selections
+    });
+    if (data.success) {
+      showAlert(alertEl, "success", "Section completed and saved (" + data.savedCount + " item(s)). This section is now locked.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      document.getElementById("btn-pdi-prev").style.display = "none";
+      document.getElementById("btn-pdi-next").style.display = "none";
+      btn.style.display = "none";
+      document.getElementById("pdi-post-submit").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Finish Section";
+  }
+}
+
+function startAnotherPdiSection() {
+  resetPdiSelectScreen();
+  populatePdiMachineTypes();
+  showScreen("screen-pdi-select");
 }
 
 // ============================================================
