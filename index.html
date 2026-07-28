@@ -314,6 +314,7 @@
       </select>
     </div>
     <button class="btn btn-success" id="btn-start-pdi-section" onclick="startPdiSectionFlow()">Start Section</button>
+    <button class="btn btn-primary" id="btn-fill-all-sections" style="display:none" onclick="startFillAllSections()">Fill All Sections</button>
     <div class="alert" id="alert-pdi-select"></div>
   </div>
 
@@ -322,7 +323,9 @@
     <div class="topbar">
       <button class="btn-outline" onclick="exitPdiSection()">&larr; Exit</button>
       <span class="page-title" id="pdi-page-section-title">Section</span>
+      <button class="btn-outline" id="btn-pdi-save-top" style="margin-left:auto;padding:9px 12px" onclick="manualSavePdiPage()">&#128190; Save</button>
     </div>
+    <div class="pdi-progress" id="pdi-section-progress-text" style="display:none"></div>
     <div class="pdi-progress" id="pdi-progress-text">Page 1 of 1</div>
     <div class="card">
       <h4 id="pdi-page-name" style="margin-bottom:10px"></h4>
@@ -390,6 +393,9 @@ let pdiMachineType = "", pdiSpreadsheetId = "", pdiSection = "";
 let pdiPages = [];         // [{ pageName, options: [...] }]
 let pdiCurrentPageIndex = 0;
 let pdiSelections = {};    // { pageIndex: Set(optionString) }
+let pdiFillAllMode = false;
+let pdiPendingSectionsQueue = [];  // section names remaining in Fill All Sections mode
+let pdiQueueIndex = 0;
 
 // Task Manager (Assign Task / Mark Task as Completed) state
 let taskMode = "";              // "assign" or "complete"
@@ -399,6 +405,7 @@ let filteredTaskItems = [];     // after Machine Number / Section filters applie
 let taskDisplayCount = 20;
 let taskFilterMachineVal = "", taskFilterSectionVal = "";
 let expandedAssignRowIndex = null; // which task's assign panel is currently open
+let taskAssigneeSelections = {};   // { rowIndex: { 1: name, 2: name, 3: name } } for the searchable assignee pickers
 let html5QrCode = null;
 let scannerRunning = false;
 let torchOn = false;
@@ -614,14 +621,26 @@ function filterDropdown(which) {
   const query = inputEl.value.trim();
   dropdown.innerHTML = "";
   const isLocation = which === "location";
-  const list = isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
+  const isEmployee = which.indexOf("assignee-") === 0;
+
+  if (isEmployee && query === "") {
+    // Field cleared - drop the stored selection for this slot too
+    const parts = which.split("-");
+    const rowIndex = parts[1], slot = parts[2];
+    if (taskAssigneeSelections[rowIndex]) delete taskAssigneeSelections[rowIndex][slot];
+    const badge = document.getElementById(which + "-badge");
+    if (badge) { badge.classList.remove("show"); badge.textContent = ""; }
+  }
+
+  const list = isEmployee ? (dropdownData.employees || []) : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
+  const noResultsLabel = isEmployee ? "No employees found" : "No machines found";
   const filtered = list.filter(m => {
-    if (isLocation) return m.toLowerCase().includes(query.toLowerCase());
+    if (isLocation || isEmployee) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
   if (filtered.length === 0) {
-    dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">No machines found</div>';
+    dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">' + noResultsLabel + '</div>';
   } else {
     filtered.slice(0, 50).forEach(m => {
       const div = document.createElement("div");
@@ -654,6 +673,12 @@ function selectDropdownValue(which, m) {
   else if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "location") selectedLocation = m;
   else if (which === "pdimachine") { selectedPdiMachine = m; if (pdiMachineType) refreshPdiSections(); }
+  else if (which.indexOf("assignee-") === 0) {
+    const parts = which.split("-"); // ["assignee", rowIndex, slot]
+    const rowIndex = parts[1], slot = parts[2];
+    if (!taskAssigneeSelections[rowIndex]) taskAssigneeSelections[rowIndex] = {};
+    taskAssigneeSelections[rowIndex][slot] = m;
+  }
   else selectedLaborMachine = m;
 }
 
@@ -893,27 +918,37 @@ function resetPdiSelectScreen() {
   hideAlert(document.getElementById("alert-pdi-select"));
   pdiMachineType = DEFAULT_MACHINE_TYPE; pdiSpreadsheetId = ""; pdiSection = "";
   pdiPages = []; pdiCurrentPageIndex = 0; pdiSelections = {};
+  pdiFillAllMode = false; pdiPendingSectionsQueue = []; pdiQueueIndex = 0;
   document.getElementById("pdi-section-select").innerHTML = '<option value="">Loading sections...</option>';
+  document.getElementById("btn-fill-all-sections").style.display = "none";
   refreshPdiSections();
 }
 
 async function refreshPdiSections() {
   const sectionSel = document.getElementById("pdi-section-select");
   const alertEl = document.getElementById("alert-pdi-select");
+  const fillAllBtn = document.getElementById("btn-fill-all-sections");
   hideAlert(alertEl);
   if (!pdiMachineType) return;
   sectionSel.innerHTML = '<option value="">Loading sections...</option>';
+  fillAllBtn.style.display = "none";
   try {
     const data = await callApi("getPdiSections", { machineType: pdiMachineType, machineNumber: selectedPdiMachine });
     if (data.success) {
       pdiSpreadsheetId = data.pdiSpreadsheetId;
-      if ((data.sections || []).length === 0) {
+      pdiPendingSectionsQueue = data.sections || [];
+      if (pdiPendingSectionsQueue.length === 0) {
         sectionSel.innerHTML = '<option value="">No pending sections for this machine</option>';
       } else {
         sectionSel.innerHTML = '<option value="">Select Section</option>';
-        data.sections.forEach(s => {
+        pdiPendingSectionsQueue.forEach(s => {
           const opt = document.createElement("option"); opt.value = s; opt.textContent = s; sectionSel.appendChild(opt);
         });
+        // Only makes sense to offer the multi-section flow once a Machine Number is chosen
+        if (selectedPdiMachine) {
+          fillAllBtn.style.display = "block";
+          fillAllBtn.textContent = data.hasInProgress ? "Continue from where you left off" : "Fill All Sections";
+        }
       }
     } else {
       sectionSel.innerHTML = '<option value="">No sections found</option>';
@@ -931,11 +966,36 @@ async function startPdiSectionFlow() {
   hideAlert(alertEl);
 
   const section = document.getElementById("pdi-section-select").value;
-  if (!pdiMachineType) { showAlert(alertEl, "error", "Please select a Machine Type."); return; }
   if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
   if (!section) { showAlert(alertEl, "error", "Please select a Section."); return; }
 
+  pdiFillAllMode = false;
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Starting...';
+  const ok = await enterPdiSection(section, alertEl);
+  btn.disabled = false; btn.innerHTML = "Start Section";
+  if (ok) showScreen("screen-pdi-pages");
+}
+
+async function startFillAllSections() {
+  const alertEl = document.getElementById("alert-pdi-select");
+  const btn = document.getElementById("btn-fill-all-sections");
+  hideAlert(alertEl);
+
+  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  if (pdiPendingSectionsQueue.length === 0) { showAlert(alertEl, "error", "No pending sections for this machine."); return; }
+
+  pdiFillAllMode = true;
+  pdiQueueIndex = 0;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Starting...';
+  const ok = await enterPdiSection(pdiPendingSectionsQueue[pdiQueueIndex], alertEl);
+  btn.disabled = false; btn.innerHTML = "Fill All Sections";
+  if (ok) showScreen("screen-pdi-pages");
+}
+
+// Shared by both entry points: fetches a Section's pages/options (plus any
+// already-saved selections, for resuming), pre-checks them, and prepares the
+// pages screen. Returns true on success.
+async function enterPdiSection(section, alertEl) {
   try {
     const data = await callApi("startPdiSection", {
       machineType: pdiMachineType, machineNumber: selectedPdiMachine, section: section
@@ -946,15 +1006,23 @@ async function startPdiSectionFlow() {
       pdiPages = data.pages || [];
       pdiCurrentPageIndex = 0;
       pdiSelections = {};
+      // Pre-check any previously-saved selections (resume support)
+      (data.existingSelections || []).forEach(sel => {
+        const pageIdx = pdiPages.findIndex(p => p.pageName === sel.page);
+        if (pageIdx >= 0) {
+          if (!pdiSelections[pageIdx]) pdiSelections[pageIdx] = new Set();
+          pdiSelections[pageIdx].add(sel.option);
+        }
+      });
       renderPdiPage();
-      showScreen("screen-pdi-pages");
+      return true;
     } else {
       showAlert(alertEl, "error", data.error || "Could not start this Section.");
+      return false;
     }
   } catch (e) {
     showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Start Section";
+    return false;
   }
 }
 
@@ -968,6 +1036,14 @@ function renderPdiPage() {
   document.getElementById("pdi-page-section-title").textContent = pdiSection;
   document.getElementById("pdi-progress-text").textContent = "Page " + (idx + 1) + " of " + total;
   document.getElementById("pdi-page-name").textContent = page.pageName;
+
+  const progressEl = document.getElementById("pdi-section-progress-text");
+  if (pdiFillAllMode) {
+    progressEl.style.display = "block";
+    progressEl.textContent = "Section " + (pdiQueueIndex + 1) + " of " + pdiPendingSectionsQueue.length + ": " + pdiSection;
+  } else {
+    progressEl.style.display = "none";
+  }
 
   const selectedSet = pdiSelections[idx] || new Set();
   const listEl = document.getElementById("pdi-options-list");
@@ -996,24 +1072,58 @@ function togglePdiOption(pageIndex, option, isChecked) {
   else pdiSelections[pageIndex].delete(option);
 }
 
-function pdiNextPage() {
+// Saves (syncs) whatever is currently checked on a given page. Safe to call
+// repeatedly - it fully replaces that page's saved rows with what's checked now.
+async function syncPdiPage(pageIndex) {
+  const page = pdiPages[pageIndex];
+  if (!page) return { success: true };
+  const options = Array.from(pdiSelections[pageIndex] || []);
+  try {
+    return await callApi("syncPdiPage", {
+      pdiSpreadsheetId: pdiSpreadsheetId, username: currentUser,
+      machineNumber: selectedPdiMachine, section: pdiSection, page: page.pageName, options: options
+    });
+  } catch (e) {
+    return { success: false, error: "Could not connect to server." };
+  }
+}
+
+async function manualSavePdiPage() {
+  const btn = document.getElementById("btn-pdi-save-top");
+  const alertEl = document.getElementById("alert-pdi-page");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const result = await syncPdiPage(pdiCurrentPageIndex);
+  btn.disabled = false; btn.innerHTML = "&#128190; Save";
+  if (result.success) {
+    showToast("Saved.");
+  } else {
+    showAlert(alertEl, "error", result.error || "Could not save.");
+  }
+}
+
+async function pdiNextPage() {
   if (pdiCurrentPageIndex < pdiPages.length - 1) {
+    const btn = document.getElementById("btn-pdi-next");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+    await syncPdiPage(pdiCurrentPageIndex);
+    btn.disabled = false; btn.innerHTML = "Next";
     pdiCurrentPageIndex++;
     renderPdiPage();
   }
 }
 
-function pdiPrevPage() {
+async function pdiPrevPage() {
   if (pdiCurrentPageIndex > 0) {
+    const btn = document.getElementById("btn-pdi-prev");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+    await syncPdiPage(pdiCurrentPageIndex);
+    btn.disabled = false; btn.innerHTML = "Previous";
     pdiCurrentPageIndex--;
     renderPdiPage();
   }
 }
 
 function exitPdiSection() {
-  if (Object.keys(pdiSelections).some(k => pdiSelections[k] && pdiSelections[k].size > 0)) {
-    if (!confirm("You have unsaved selections in this Section. Leaving now will discard them. Exit anyway?")) return;
-  }
   goHome();
 }
 
@@ -1022,31 +1132,46 @@ async function finishPdiSection() {
   const btn = document.getElementById("btn-pdi-finish");
   hideAlert(alertEl);
 
-  const selections = [];
-  pdiPages.forEach((page, idx) => {
-    const set = pdiSelections[idx];
-    if (set) set.forEach(opt => selections.push({ page: page.pageName, option: opt }));
-  });
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  const syncResult = await syncPdiPage(pdiCurrentPageIndex); // make sure the last page is saved first
+  if (!syncResult.success) {
+    showAlert(alertEl, "error", syncResult.error || "Could not save this page.");
+    btn.disabled = false; btn.innerHTML = "Finish Section";
+    return;
+  }
+
   try {
-    const data = await callApi("submitPdiSection", {
-      pdiSpreadsheetId: pdiSpreadsheetId, username: currentUser,
-      machineNumber: selectedPdiMachine, section: pdiSection, selections: selections
+    const data = await callApi("finishPdiSection", {
+      pdiSpreadsheetId: pdiSpreadsheetId, machineNumber: selectedPdiMachine, section: pdiSection
     });
     if (data.success) {
-      const savedMsg = data.savedCount > 0 ? "Section completed and saved (" + data.savedCount + " item(s))." : "Section marked complete (no options were selected).";
-      showAlert(alertEl, "success", savedMsg + " This section is now locked.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      document.getElementById("btn-pdi-prev").style.display = "none";
-      document.getElementById("btn-pdi-next").style.display = "none";
-      btn.style.display = "none";
-      document.getElementById("pdi-post-submit").style.display = "block";
+      if (pdiFillAllMode && pdiQueueIndex < pdiPendingSectionsQueue.length - 1) {
+        // Auto-advance to the next pending section, no button press needed
+        pdiQueueIndex++;
+        showToast("Section complete. Moving to next section...");
+        const nextSection = pdiPendingSectionsQueue[pdiQueueIndex];
+        const ok = await enterPdiSection(nextSection, alertEl);
+        if (!ok) { btn.disabled = false; btn.innerHTML = "Finish Section"; return; }
+      } else if (pdiFillAllMode) {
+        // Last section in the queue - show a distinct "all done" state
+        showAlert(alertEl, "success", "All sections completed for this machine!");
+        document.getElementById("btn-pdi-prev").style.display = "none";
+        document.getElementById("btn-pdi-next").style.display = "none";
+        btn.style.display = "none";
+        document.getElementById("pdi-post-submit").style.display = "block";
+      } else {
+        showAlert(alertEl, "success", "Section completed. This section is now locked.");
+        document.getElementById("btn-pdi-prev").style.display = "none";
+        document.getElementById("btn-pdi-next").style.display = "none";
+        btn.style.display = "none";
+        document.getElementById("pdi-post-submit").style.display = "block";
+      }
     } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
+      showAlert(alertEl, "error", data.error || "Failed to complete section.");
     }
   } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
+    showAlert(alertEl, "error", "Failed to complete section: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Finish Section";
   }
@@ -1067,6 +1192,7 @@ function resetTaskManagerState() {
   taskDisplayCount = 20;
   taskFilterMachineVal = ""; taskFilterSectionVal = "";
   expandedAssignRowIndex = null;
+  taskAssigneeSelections = {};
 }
 
 async function loadTaskList() {
@@ -1165,11 +1291,20 @@ function renderTaskList() {
 
     if (taskMode === "assign") {
       html += '<button class="btn btn-outline" style="margin-top:10px" onclick="toggleAssignPanel(' + item.rowIndex + ')">Assign</button>';
-      html += '<div id="assign-panel-' + item.rowIndex + '" style="display:' + (expandedAssignRowIndex === item.rowIndex ? "block" : "none") + '">' +
-        '<div class="assignee-row"><select id="assignee1-' + item.rowIndex + '"><option value="">Person 1</option></select>' +
-        '<select id="assignee2-' + item.rowIndex + '"><option value="">Person 2 (optional)</option></select>' +
-        '<select id="assignee3-' + item.rowIndex + '"><option value="">Person 3 (optional)</option></select></div>' +
-        '<button class="btn btn-success" style="margin-top:8px" onclick="saveTaskAssignment(' + item.rowIndex + ')">Save Assignment</button>' +
+      html += '<div id="assign-panel-' + item.rowIndex + '" style="display:' + (expandedAssignRowIndex === item.rowIndex ? "block" : "none") + '">';
+      [1, 2, 3].forEach(slot => {
+        const which = "assignee-" + item.rowIndex + "-" + slot;
+        const preset = (taskAssigneeSelections[item.rowIndex] && taskAssigneeSelections[item.rowIndex][slot]) || "";
+        html += '<label style="margin-top:10px">Person ' + slot + (slot > 1 ? ' <span style="color:var(--muted);font-weight:400">(optional)</span>' : '') + '</label>' +
+          '<div class="search-wrap">' +
+            '<input type="text" id="' + which + '-search" autocomplete="off" value="' + escHtml(preset) + '"' +
+              ' placeholder="Type to search employee..." oninput="filterDropdown(\'' + which + '\')"' +
+              ' onfocus="filterDropdown(\'' + which + '\')" onblur="onDropdownBlur(\'' + which + '\')">' +
+            '<div class="search-dropdown" id="' + which + '-dropdown"></div>' +
+          '</div>' +
+          '<div class="selected-badge' + (preset ? ' show' : '') + '" id="' + which + '-badge">' + (preset ? "Selected: " + escHtml(preset) : "") + '</div>';
+      });
+      html += '<button class="btn btn-success" style="margin-top:8px" onclick="saveTaskAssignment(' + item.rowIndex + ')">Save Assignment</button>' +
         '</div>';
     } else {
       const assignees = [item.doneBy1, item.doneBy2, item.doneBy3].filter(Boolean).join(", ");
@@ -1178,36 +1313,22 @@ function renderTaskList() {
     }
     card.innerHTML = html;
     container.appendChild(card);
-
-    if (taskMode === "assign" && expandedAssignRowIndex === item.rowIndex) {
-      populateAssigneeSelects(item.rowIndex);
-    }
   });
 }
 
 function toggleAssignPanel(rowIndex) {
   expandedAssignRowIndex = (expandedAssignRowIndex === rowIndex) ? null : rowIndex;
+  if (expandedAssignRowIndex !== null && !taskAssigneeSelections[expandedAssignRowIndex]) {
+    taskAssigneeSelections[expandedAssignRowIndex] = {};
+  }
   renderTaskList();
-}
-
-function populateAssigneeSelects(rowIndex) {
-  const employees = dropdownData.employees || [];
-  [1, 2, 3].forEach(n => {
-    const sel = document.getElementById("assignee" + n + "-" + rowIndex);
-    if (!sel) return;
-    employees.forEach(emp => {
-      const o = document.createElement("option"); o.value = emp; o.textContent = emp; sel.appendChild(o);
-    });
-  });
 }
 
 async function saveTaskAssignment(rowIndex) {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
-  const e1 = document.getElementById("assignee1-" + rowIndex).value;
-  const e2 = document.getElementById("assignee2-" + rowIndex).value;
-  const e3 = document.getElementById("assignee3-" + rowIndex).value;
-  const employees = [e1, e2, e3].filter(Boolean);
+  const sel = taskAssigneeSelections[rowIndex] || {};
+  const employees = [sel[1], sel[2], sel[3]].filter(Boolean);
 
   if (employees.length === 0) {
     showAlert(alertEl, "error", "Please select at least one person to assign.");
@@ -1220,6 +1341,7 @@ async function saveTaskAssignment(rowIndex) {
       showToast("Task assigned.");
       allTaskItems = allTaskItems.filter(t => t.rowIndex !== rowIndex);
       filteredTaskItems = filteredTaskItems.filter(t => t.rowIndex !== rowIndex);
+      delete taskAssigneeSelections[rowIndex];
       expandedAssignRowIndex = null;
       renderTaskList();
     } else {
