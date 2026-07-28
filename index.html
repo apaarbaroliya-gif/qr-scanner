@@ -293,6 +293,7 @@
   </div>
 
   <!-- SCREEN: MACHINE PDI - SELECT MACHINE TYPE / NUMBER / SECTION -->
+  <!-- SCREEN: MACHINE PDI - SELECT MACHINE NUMBER -->
   <div class="screen" id="screen-pdi-select">
     <div class="topbar">
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
@@ -307,18 +308,49 @@
         <div class="search-dropdown" id="pdimachine-dropdown"></div>
       </div>
       <div class="selected-badge" id="pdimachine-badge"></div>
-
-      <label>Section</label>
-      <select id="pdi-section-select">
-        <option value="">Loading sections...</option>
-      </select>
     </div>
-    <button class="btn btn-success" id="btn-start-pdi-section" onclick="startPdiSectionFlow()">Start Section</button>
-    <button class="btn btn-primary" id="btn-fill-all-sections" style="display:none" onclick="startFillAllSections()">Fill All Sections</button>
+    <button class="btn btn-success" id="btn-pdi-fill-online" onclick="startOnlinePdiFlow()">Fill PDI Online</button>
+    <button class="btn btn-primary" id="btn-pdi-fill-offline" onclick="startOfflinePdiFlow()">Fill PDI Offline</button>
     <div class="alert" id="alert-pdi-select"></div>
+
+    <h4 style="margin-top:24px;margin-bottom:6px">Uncompleted PDIs</h4>
+    <div class="task-count-text" id="uncompleted-pdi-count" style="margin:0 0 8px"></div>
+    <div id="uncompleted-pdi-list"></div>
   </div>
 
-  <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS -->
+  <!-- SCREEN: MACHINE DETAILS (required once per machine before any PDI) -->
+  <div class="screen" id="screen-machine-details">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Machine Details</span>
+    </div>
+    <div class="task-count-text" style="margin-bottom:10px">Required once for this machine before starting the PDI.</div>
+    <div class="card">
+      <label>Machine Number</label>
+      <input type="text" id="md-machine-display" disabled>
+
+      <label>Serial Number <span style="color:var(--muted)">(up to 17 characters)</span></label>
+      <input type="text" id="md-serial" maxlength="17" placeholder="Serial Number">
+
+      <label>YOM <span style="color:var(--muted)">(Year of Manufacture)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="md-yom-search" autocomplete="off" placeholder="Type to search month/year..."
+          oninput="filterDropdown('mdyom')" onfocus="filterDropdown('mdyom')" onblur="onDropdownBlur('mdyom')">
+        <div class="search-dropdown" id="mdyom-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="mdyom-badge"></div>
+
+      <label>HP</label>
+      <input type="number" id="md-hp" step="0.01" placeholder="e.g. 45.50">
+
+      <label>HMR</label>
+      <input type="number" id="md-hmr" step="0.01" placeholder="e.g. 1234.50">
+    </div>
+    <button class="btn btn-success" id="btn-save-machine-details" onclick="saveMachineDetailsAndContinue()">Save &amp; Continue</button>
+    <div class="alert" id="alert-machine-details"></div>
+  </div>
+
+  <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS (Online) -->
   <div class="screen" id="screen-pdi-pages">
     <div class="topbar">
       <button class="btn-outline" onclick="exitPdiSection()">&larr; Exit</button>
@@ -338,8 +370,41 @@
     <button class="btn btn-success" id="btn-pdi-finish" style="display:none" onclick="finishPdiSection()">Finish Section</button>
     <div class="alert" id="alert-pdi-page"></div>
     <div id="pdi-post-submit" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="startAnotherPdiSection()">Start Another Section</button>
+      <button class="btn btn-success" onclick="startAnotherPdiSection()">Back to Machine PDI</button>
       <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS (Offline) -->
+  <div class="screen" id="screen-pdi-offline">
+    <div class="topbar">
+      <button class="btn-outline" onclick="exitOfflinePdi()">&larr; Exit</button>
+      <span class="page-title" id="offline-page-section-title">Section</span>
+      <button class="btn-outline" style="margin-left:auto;padding:9px 12px" onclick="offlineManualSave()">&#128190; Save</button>
+    </div>
+    <div class="pdi-progress" id="offline-section-progress-text"></div>
+    <div class="pdi-progress" id="offline-progress-text">Page 1 of 1</div>
+    <div class="card">
+      <h4 id="offline-page-name" style="margin-bottom:10px"></h4>
+      <div id="offline-options-list"></div>
+    </div>
+    <div class="pdi-nav-row">
+      <button class="btn btn-outline" id="btn-offline-prev" onclick="offlinePrevPage()">Previous</button>
+      <button class="btn btn-primary" id="btn-offline-next" onclick="offlineNextPage()">Next</button>
+    </div>
+    <div class="alert" id="alert-offline-page"></div>
+
+    <div id="offline-complete-card" style="display:none">
+      <div class="card" style="text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">&#9989;</div>
+        <h4>All sections filled offline</h4>
+        <p style="color:var(--muted);font-size:13px">Connect to the internet and press Upload to save this to the sheet.</p>
+      </div>
+      <button class="btn btn-success" id="btn-offline-upload" onclick="uploadOfflinePdi()">Upload</button>
+      <div class="alert" id="alert-offline-upload"></div>
+      <div id="offline-post-upload" style="display:none;margin-top:4px">
+        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+      </div>
     </div>
   </div>
 
@@ -389,6 +454,21 @@ let scannedQR = "";
 let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
 let selectedMovementMachine = "", selectedLocation = "";
 let selectedPdiMachine = "";
+let selectedMdYom = "";
+
+// Month/Year list for the Machine Details YOM dropdown: Jan 2012 through the current month, newest first
+const YOM_OPTIONS = (function () {
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const now = new Date();
+  const list = [];
+  for (let y = now.getFullYear(); y >= 2012; y--) {
+    const maxMonth = (y === now.getFullYear()) ? now.getMonth() : 11;
+    for (let m = maxMonth; m >= 0; m--) {
+      list.push(months[m] + " " + y);
+    }
+  }
+  return list;
+})();
 let pdiMachineType = "", pdiSpreadsheetId = "", pdiSection = "";
 let pdiPages = [];         // [{ pageName, options: [...] }]
 let pdiCurrentPageIndex = 0;
@@ -622,6 +702,7 @@ function filterDropdown(which) {
   dropdown.innerHTML = "";
   const isLocation = which === "location";
   const isEmployee = which.indexOf("assignee-") === 0;
+  const isYom = which === "mdyom";
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -632,10 +713,10 @@ function filterDropdown(which) {
     if (badge) { badge.classList.remove("show"); badge.textContent = ""; }
   }
 
-  const list = isEmployee ? (dropdownData.employees || []) : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
-  const noResultsLabel = isEmployee ? "No employees found" : "No machines found";
+  const list = isEmployee ? (dropdownData.employees || []) : isYom ? YOM_OPTIONS : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
+  const noResultsLabel = isEmployee ? "No employees found" : isYom ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
-    if (isLocation || isEmployee) return m.toLowerCase().includes(query.toLowerCase());
+    if (isLocation || isEmployee || isYom) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
@@ -672,7 +753,8 @@ function selectDropdownValue(which, m) {
   else if (which === "outmachine") selectedOutMachine = m;
   else if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "location") selectedLocation = m;
-  else if (which === "pdimachine") { selectedPdiMachine = m; if (pdiMachineType) refreshPdiSections(); }
+  else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
+  else if (which === "mdyom") selectedMdYom = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -919,82 +1001,142 @@ function resetPdiSelectScreen() {
   pdiMachineType = DEFAULT_MACHINE_TYPE; pdiSpreadsheetId = ""; pdiSection = "";
   pdiPages = []; pdiCurrentPageIndex = 0; pdiSelections = {};
   pdiFillAllMode = false; pdiPendingSectionsQueue = []; pdiQueueIndex = 0;
-  document.getElementById("pdi-section-select").innerHTML = '<option value="">Loading sections...</option>';
-  document.getElementById("btn-fill-all-sections").style.display = "none";
-  refreshPdiSections();
+  loadUncompletedPdiList();
 }
 
-async function refreshPdiSections() {
-  const sectionSel = document.getElementById("pdi-section-select");
-  const alertEl = document.getElementById("alert-pdi-select");
-  const fillAllBtn = document.getElementById("btn-fill-all-sections");
-  hideAlert(alertEl);
-  if (!pdiMachineType) return;
-  sectionSel.innerHTML = '<option value="">Loading sections...</option>';
-  fillAllBtn.style.display = "none";
+// ---- Uncompleted PDI widgets ----
+async function loadUncompletedPdiList() {
+  const container = document.getElementById("uncompleted-pdi-list");
+  const countEl = document.getElementById("uncompleted-pdi-count");
+  container.innerHTML = "";
+  countEl.textContent = "Loading...";
   try {
-    const data = await callApi("getPdiSections", { machineType: pdiMachineType, machineNumber: selectedPdiMachine });
+    const data = await callApi("getUncompletedPdiList", { machineType: DEFAULT_MACHINE_TYPE });
     if (data.success) {
-      pdiSpreadsheetId = data.pdiSpreadsheetId;
-      pdiPendingSectionsQueue = data.sections || [];
-      if (pdiPendingSectionsQueue.length === 0) {
-        sectionSel.innerHTML = '<option value="">No pending sections for this machine</option>';
-      } else {
-        sectionSel.innerHTML = '<option value="">Select Section</option>';
-        pdiPendingSectionsQueue.forEach(s => {
-          const opt = document.createElement("option"); opt.value = s; opt.textContent = s; sectionSel.appendChild(opt);
-        });
-        // Only makes sense to offer the multi-section flow once a Machine Number is chosen
-        if (selectedPdiMachine) {
-          fillAllBtn.style.display = "block";
-          fillAllBtn.textContent = data.hasInProgress ? "Continue from where you left off" : "Fill All Sections";
-        }
-      }
+      const items = data.items || [];
+      countEl.textContent = items.length === 0 ? "No uncompleted PDIs right now." : items.length + " machine(s) in progress";
+      items.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const d = item.machineDetails;
+        const detailsLine = d ? ("Serial: " + escHtml(d.serialNumber) + "  |  YOM: " + escHtml(d.yom) + "  |  HP: " + escHtml(d.hp) + "  |  HMR: " + escHtml(d.hmr))
+          : "No Machine Details on file";
+        card.innerHTML = '<div class="task-title">' + escHtml(item.machineNumber) + '</div>' +
+          '<div class="task-sub">' + detailsLine + '</div>' +
+          '<div class="task-meta">' + item.doneCount + ' of ' + item.totalSections + ' sections done</div>' +
+          '<button class="btn btn-outline" style="margin-top:10px" onclick="continueUncompletedPdi(\'' + item.machineNumber.replace(/'/g, "\\'") + '\')">Continue</button>';
+        container.appendChild(card);
+      });
     } else {
-      sectionSel.innerHTML = '<option value="">No sections found</option>';
-      showAlert(alertEl, "error", data.error || "Could not load sections.");
+      countEl.textContent = "";
+      container.innerHTML = '<p style="color:var(--muted);font-size:13px">' + escHtml(data.error || "Could not load list.") + '</p>';
     }
   } catch (e) {
-    sectionSel.innerHTML = '<option value="">Error loading sections</option>';
+    countEl.textContent = "";
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px">Could not connect to server.</p>';
+  }
+}
+
+function continueUncompletedPdi(machineNumber) {
+  selectedPdiMachine = machineNumber;
+  document.getElementById("pdimachine-search").value = machineNumber;
+  const badge = document.getElementById("pdimachine-badge");
+  badge.textContent = "Selected: " + machineNumber;
+  badge.classList.add("show");
+  startOnlinePdiFlow();
+}
+
+// ---- Machine Details gate ----
+let pendingPdiModeAfterDetails = ""; // "online" or "offline"
+
+async function ensureMachineDetailsThenStart(mode) {
+  const alertEl = document.getElementById("alert-pdi-select");
+  hideAlert(alertEl);
+  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+
+  try {
+    const data = await callApi("checkMachineDetails", { machineNumber: selectedPdiMachine });
+    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not check Machine Details."); return; }
+    if (data.exists) {
+      if (mode === "online") proceedOnlinePdi();
+      else proceedOfflinePdi();
+    } else {
+      pendingPdiModeAfterDetails = mode;
+      document.getElementById("md-machine-display").value = selectedPdiMachine;
+      document.getElementById("md-serial").value = "";
+      document.getElementById("md-hp").value = "";
+      document.getElementById("md-hmr").value = "";
+      document.getElementById("md-yom-search").value = "";
+      const badge = document.getElementById("mdyom-badge");
+      badge.classList.remove("show"); badge.textContent = "";
+      selectedMdYom = "";
+      hideAlert(document.getElementById("alert-machine-details"));
+      showScreen("screen-machine-details");
+    }
+  } catch (e) {
     showAlert(alertEl, "error", "Could not connect to server.");
   }
 }
 
-async function startPdiSectionFlow() {
-  const alertEl = document.getElementById("alert-pdi-select");
-  const btn = document.getElementById("btn-start-pdi-section");
+function startOnlinePdiFlow() { ensureMachineDetailsThenStart("online"); }
+function startOfflinePdiFlow() { ensureMachineDetailsThenStart("offline"); }
+
+async function saveMachineDetailsAndContinue() {
+  const alertEl = document.getElementById("alert-machine-details");
+  const btn = document.getElementById("btn-save-machine-details");
   hideAlert(alertEl);
 
-  const section = document.getElementById("pdi-section-select").value;
-  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-  if (!section) { showAlert(alertEl, "error", "Please select a Section."); return; }
+  const serial = document.getElementById("md-serial").value.trim();
+  const hp = document.getElementById("md-hp").value;
+  const hmr = document.getElementById("md-hmr").value;
 
-  pdiFillAllMode = false;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Starting...';
-  const ok = await enterPdiSection(section, alertEl);
-  btn.disabled = false; btn.innerHTML = "Start Section";
-  if (ok) showScreen("screen-pdi-pages");
+  if (!serial) { showAlert(alertEl, "error", "Serial Number is required."); return; }
+  if (!selectedMdYom) { showAlert(alertEl, "error", "Please select YOM."); return; }
+  if (hp === "" || isNaN(parseFloat(hp))) { showAlert(alertEl, "error", "Please enter a valid HP."); return; }
+  if (hmr === "" || isNaN(parseFloat(hmr))) { showAlert(alertEl, "error", "Please enter a valid HMR."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  try {
+    const data = await callApi("saveMachineDetails", {
+      machineNumber: selectedPdiMachine, serialNumber: serial, yom: selectedMdYom, hp: hp, hmr: hmr
+    });
+    if (data.success) {
+      if (pendingPdiModeAfterDetails === "online") proceedOnlinePdi();
+      else proceedOfflinePdi();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not save Machine Details.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Save & Continue";
+  }
 }
 
-async function startFillAllSections() {
+// ---- ONLINE PDI (always fills every pending section, back-to-back) ----
+async function proceedOnlinePdi() {
   const alertEl = document.getElementById("alert-pdi-select");
-  const btn = document.getElementById("btn-fill-all-sections");
   hideAlert(alertEl);
-
-  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-  if (pdiPendingSectionsQueue.length === 0) { showAlert(alertEl, "error", "No pending sections for this machine."); return; }
-
-  pdiFillAllMode = true;
-  pdiQueueIndex = 0;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Starting...';
-  const ok = await enterPdiSection(pdiPendingSectionsQueue[pdiQueueIndex], alertEl);
-  btn.disabled = false; btn.innerHTML = "Fill All Sections";
-  if (ok) showScreen("screen-pdi-pages");
+  try {
+    const data = await callApi("getPdiSections", { machineType: pdiMachineType, machineNumber: selectedPdiMachine });
+    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not load sections."); return; }
+    pdiSpreadsheetId = data.pdiSpreadsheetId;
+    pdiPendingSectionsQueue = data.sections || [];
+    if (pdiPendingSectionsQueue.length === 0) {
+      showAlert(alertEl, "success", "All sections are already completed for this machine.");
+      return;
+    }
+    pdiFillAllMode = true;
+    pdiQueueIndex = 0;
+    const ok = await enterPdiSection(pdiPendingSectionsQueue[0], alertEl);
+    if (ok) showScreen("screen-pdi-pages");
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
 }
 
-// Shared by both entry points: fetches a Section's pages/options (plus any
-// already-saved selections, for resuming), pre-checks them, and prepares the
-// pages screen. Returns true on success.
+// Fetches a Section's pages/options (plus any already-saved selections, for
+// resuming), pre-checks them, and prepares the pages screen. Returns true on success.
 async function enterPdiSection(section, alertEl) {
   try {
     const data = await callApi("startPdiSection", {
@@ -1006,7 +1148,6 @@ async function enterPdiSection(section, alertEl) {
       pdiPages = data.pages || [];
       pdiCurrentPageIndex = 0;
       pdiSelections = {};
-      // Pre-check any previously-saved selections (resume support)
       (data.existingSelections || []).forEach(sel => {
         const pageIdx = pdiPages.findIndex(p => p.pageName === sel.page);
         if (pageIdx >= 0) {
@@ -1036,14 +1177,9 @@ function renderPdiPage() {
   document.getElementById("pdi-page-section-title").textContent = pdiSection;
   document.getElementById("pdi-progress-text").textContent = "Page " + (idx + 1) + " of " + total;
   document.getElementById("pdi-page-name").textContent = page.pageName;
-
-  const progressEl = document.getElementById("pdi-section-progress-text");
-  if (pdiFillAllMode) {
-    progressEl.style.display = "block";
-    progressEl.textContent = "Section " + (pdiQueueIndex + 1) + " of " + pdiPendingSectionsQueue.length + ": " + pdiSection;
-  } else {
-    progressEl.style.display = "none";
-  }
+  document.getElementById("pdi-section-progress-text").style.display = "block";
+  document.getElementById("pdi-section-progress-text").textContent =
+    "Section " + (pdiQueueIndex + 1) + " of " + pdiPendingSectionsQueue.length + ": " + pdiSection;
 
   const selectedSet = pdiSelections[idx] || new Set();
   const listEl = document.getElementById("pdi-options-list");
@@ -1072,8 +1208,6 @@ function togglePdiOption(pageIndex, option, isChecked) {
   else pdiSelections[pageIndex].delete(option);
 }
 
-// Saves (syncs) whatever is currently checked on a given page. Safe to call
-// repeatedly - it fully replaces that page's saved rows with what's checked now.
 async function syncPdiPage(pageIndex) {
   const page = pdiPages[pageIndex];
   if (!page) return { success: true };
@@ -1094,11 +1228,8 @@ async function manualSavePdiPage() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   const result = await syncPdiPage(pdiCurrentPageIndex);
   btn.disabled = false; btn.innerHTML = "&#128190; Save";
-  if (result.success) {
-    showToast("Saved.");
-  } else {
-    showAlert(alertEl, "error", result.error || "Could not save.");
-  }
+  if (result.success) showToast("Saved.");
+  else showAlert(alertEl, "error", result.error || "Could not save.");
 }
 
 async function pdiNextPage() {
@@ -1123,9 +1254,7 @@ async function pdiPrevPage() {
   }
 }
 
-function exitPdiSection() {
-  goHome();
-}
+function exitPdiSection() { goHome(); }
 
 async function finishPdiSection() {
   const alertEl = document.getElementById("alert-pdi-page");
@@ -1133,7 +1262,7 @@ async function finishPdiSection() {
   hideAlert(alertEl);
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  const syncResult = await syncPdiPage(pdiCurrentPageIndex); // make sure the last page is saved first
+  const syncResult = await syncPdiPage(pdiCurrentPageIndex);
   if (!syncResult.success) {
     showAlert(alertEl, "error", syncResult.error || "Could not save this page.");
     btn.disabled = false; btn.innerHTML = "Finish Section";
@@ -1146,22 +1275,14 @@ async function finishPdiSection() {
     });
     if (data.success) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      if (pdiFillAllMode && pdiQueueIndex < pdiPendingSectionsQueue.length - 1) {
-        // Auto-advance to the next pending section, no button press needed
+      if (pdiQueueIndex < pdiPendingSectionsQueue.length - 1) {
         pdiQueueIndex++;
         showToast("Section complete. Moving to next section...");
         const nextSection = pdiPendingSectionsQueue[pdiQueueIndex];
         const ok = await enterPdiSection(nextSection, alertEl);
         if (!ok) { btn.disabled = false; btn.innerHTML = "Finish Section"; return; }
-      } else if (pdiFillAllMode) {
-        // Last section in the queue - show a distinct "all done" state
-        showAlert(alertEl, "success", "All sections completed for this machine!");
-        document.getElementById("btn-pdi-prev").style.display = "none";
-        document.getElementById("btn-pdi-next").style.display = "none";
-        btn.style.display = "none";
-        document.getElementById("pdi-post-submit").style.display = "block";
       } else {
-        showAlert(alertEl, "success", "Section completed. This section is now locked.");
+        showAlert(alertEl, "success", "All sections completed for this machine!");
         document.getElementById("btn-pdi-prev").style.display = "none";
         document.getElementById("btn-pdi-next").style.display = "none";
         btn.style.display = "none";
@@ -1178,9 +1299,230 @@ async function finishPdiSection() {
 }
 
 async function startAnotherPdiSection() {
-  await loadDropdownData(); // refresh Machine Numbers from the sheet
-  resetPdiSelectScreen();   // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
+  await loadDropdownData();
+  resetPdiSelectScreen();
   showScreen("screen-pdi-select");
+}
+
+// ---- OFFLINE PDI ----
+
+// Fired automatically in the background whenever a Machine Number is picked
+// while online, so the data is ready on-device if the user later goes offline.
+async function cacheOfflineStructureForMachine(machineNumber) {
+  try {
+    const data = await callApi("getFullPdiStructureForMachine", { machineType: DEFAULT_MACHINE_TYPE, machineNumber: machineNumber });
+    if (data.success) {
+      localStorage.setItem("pdi_cache_" + machineNumber, JSON.stringify({ pdiSpreadsheetId: data.pdiSpreadsheetId, sections: data.sections }));
+    }
+  } catch (e) { /* best effort - offline mode will show an error if nothing cached yet */ }
+}
+
+let offlineSession = null; // current in-progress offline session (see structure below)
+
+async function proceedOfflinePdi() {
+  const alertEl = document.getElementById("alert-pdi-select");
+  hideAlert(alertEl);
+  const machineNumber = selectedPdiMachine;
+
+  // Resume an existing offline session if one is already saved on this device
+  const existingRaw = localStorage.getItem("pdi_offline_progress_" + machineNumber);
+  if (existingRaw) {
+    try {
+      offlineSession = JSON.parse(existingRaw);
+      renderOfflinePage();
+      showScreen("screen-pdi-offline");
+      return;
+    } catch (e) { /* fall through to fresh start */ }
+  }
+
+  // Otherwise start fresh from the cached structure (refresh it first to be safe)
+  await cacheOfflineStructureForMachine(machineNumber);
+  const cachedRaw = localStorage.getItem("pdi_cache_" + machineNumber);
+  if (!cachedRaw) {
+    showAlert(alertEl, "error", "Offline data isn't ready yet for this machine. Make sure you're online and try again.");
+    return;
+  }
+  const cached = JSON.parse(cachedRaw);
+  if (!cached.sections || cached.sections.length === 0) {
+    showAlert(alertEl, "success", "All sections are already completed for this machine.");
+    return;
+  }
+
+  const selections = {};
+  const allSectionsData = {};
+  cached.sections.forEach(s => {
+    allSectionsData[s.section] = s.pages;
+    selections[s.section] = {};
+    (s.existingSelections || []).forEach(sel => {
+      const pageIdx = s.pages.findIndex(p => p.pageName === sel.page);
+      if (pageIdx >= 0) {
+        if (!selections[s.section][pageIdx]) selections[s.section][pageIdx] = [];
+        if (selections[s.section][pageIdx].indexOf(sel.option) === -1) selections[s.section][pageIdx].push(sel.option);
+      }
+    });
+  });
+
+  offlineSession = {
+    machineNumber: machineNumber,
+    pdiSpreadsheetId: cached.pdiSpreadsheetId,
+    sectionsQueue: cached.sections.map(s => s.section),
+    currentSectionIndex: 0,
+    currentPageIndex: 0,
+    allSectionsData: allSectionsData,
+    selections: selections,
+    complete: false
+  };
+  saveOfflineSessionToStorage();
+  renderOfflinePage();
+  showScreen("screen-pdi-offline");
+}
+
+function saveOfflineSessionToStorage() {
+  if (offlineSession) {
+    localStorage.setItem("pdi_offline_progress_" + offlineSession.machineNumber, JSON.stringify(offlineSession));
+  }
+}
+
+function offlineCurrentPages() {
+  const section = offlineSession.sectionsQueue[offlineSession.currentSectionIndex];
+  return offlineSession.allSectionsData[section] || [];
+}
+
+function renderOfflinePage() {
+  hideAlert(document.getElementById("alert-offline-page"));
+
+  if (offlineSession.complete) {
+    document.getElementById("offline-page-section-title").textContent = "Complete";
+    document.getElementById("offline-section-progress-text").textContent = "";
+    document.getElementById("offline-progress-text").textContent = "";
+    document.querySelector("#screen-pdi-offline .card").style.display = "none";
+    document.querySelector("#screen-pdi-offline .pdi-nav-row").style.display = "none";
+    document.getElementById("offline-complete-card").style.display = "block";
+    return;
+  }
+
+  document.querySelector("#screen-pdi-offline .card").style.display = "block";
+  document.querySelector("#screen-pdi-offline .pdi-nav-row").style.display = "flex";
+  document.getElementById("offline-complete-card").style.display = "none";
+
+  const section = offlineSession.sectionsQueue[offlineSession.currentSectionIndex];
+  const pages = offlineCurrentPages();
+  const idx = offlineSession.currentPageIndex;
+  const page = pages[idx];
+  const total = pages.length;
+
+  document.getElementById("offline-page-section-title").textContent = section;
+  document.getElementById("offline-section-progress-text").textContent =
+    "Section " + (offlineSession.currentSectionIndex + 1) + " of " + offlineSession.sectionsQueue.length + ": " + section;
+  document.getElementById("offline-progress-text").textContent = "Page " + (idx + 1) + " of " + total;
+  document.getElementById("offline-page-name").textContent = page.pageName;
+
+  const selectedArr = (offlineSession.selections[section] && offlineSession.selections[section][idx]) || [];
+  const listEl = document.getElementById("offline-options-list");
+  listEl.innerHTML = "";
+  page.options.forEach((opt, optIdx) => {
+    const id = "offline-opt-" + idx + "-" + optIdx;
+    const row = document.createElement("div");
+    row.className = "option-item";
+    row.innerHTML = '<input type="checkbox" id="' + id + '"' + (selectedArr.indexOf(opt) >= 0 ? " checked" : "") + '>' +
+      '<label for="' + id + '">' + escHtml(opt) + '</label>';
+    row.querySelector("input").addEventListener("change", (e) => {
+      toggleOfflineOption(section, idx, opt, e.target.checked);
+    });
+    listEl.appendChild(row);
+  });
+
+  document.getElementById("btn-offline-prev").style.display =
+    (offlineSession.currentSectionIndex === 0 && idx === 0) ? "none" : "block";
+  document.getElementById("btn-offline-next").textContent =
+    (idx === total - 1 && offlineSession.currentSectionIndex === offlineSession.sectionsQueue.length - 1) ? "Finish" : "Next";
+}
+
+function toggleOfflineOption(section, pageIndex, option, isChecked) {
+  if (!offlineSession.selections[section]) offlineSession.selections[section] = {};
+  if (!offlineSession.selections[section][pageIndex]) offlineSession.selections[section][pageIndex] = [];
+  const arr = offlineSession.selections[section][pageIndex];
+  const pos = arr.indexOf(option);
+  if (isChecked && pos === -1) arr.push(option);
+  else if (!isChecked && pos >= 0) arr.splice(pos, 1);
+  saveOfflineSessionToStorage();
+}
+
+function offlineNextPage() {
+  const pages = offlineCurrentPages();
+  const isLastPageOfSection = offlineSession.currentPageIndex === pages.length - 1;
+  const isLastSection = offlineSession.currentSectionIndex === offlineSession.sectionsQueue.length - 1;
+
+  if (!isLastPageOfSection) {
+    offlineSession.currentPageIndex++;
+  } else if (!isLastSection) {
+    offlineSession.currentSectionIndex++;
+    offlineSession.currentPageIndex = 0;
+  } else {
+    offlineSession.complete = true;
+  }
+  saveOfflineSessionToStorage();
+  renderOfflinePage();
+}
+
+function offlinePrevPage() {
+  if (offlineSession.currentPageIndex > 0) {
+    offlineSession.currentPageIndex--;
+  } else if (offlineSession.currentSectionIndex > 0) {
+    offlineSession.currentSectionIndex--;
+    const pages = offlineCurrentPages();
+    offlineSession.currentPageIndex = pages.length - 1;
+  }
+  saveOfflineSessionToStorage();
+  renderOfflinePage();
+}
+
+function offlineManualSave() {
+  saveOfflineSessionToStorage();
+  showToast("Saved locally on this device.");
+}
+
+function exitOfflinePdi() {
+  saveOfflineSessionToStorage();
+  goHome();
+}
+
+async function uploadOfflinePdi() {
+  const alertEl = document.getElementById("alert-offline-upload");
+  const btn = document.getElementById("btn-offline-upload");
+  hideAlert(alertEl);
+
+  const sectionsData = offlineSession.sectionsQueue.map(section => {
+    const pages = offlineSession.allSectionsData[section] || [];
+    const pageData = pages.map((p, idx) => ({
+      page: p.pageName,
+      options: (offlineSession.selections[section] && offlineSession.selections[section][idx]) || []
+    }));
+    return { section: section, pages: pageData };
+  });
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await callApi("uploadOfflinePdi", {
+      pdiSpreadsheetId: offlineSession.pdiSpreadsheetId, username: currentUser,
+      machineNumber: offlineSession.machineNumber, sectionsData: sectionsData
+    });
+    if (data.success) {
+      const summary = (data.results || []).map(r => r.section + ": " + r.status).join(", ");
+      showAlert(alertEl, "success", "Upload complete. " + summary);
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      localStorage.removeItem("pdi_offline_progress_" + offlineSession.machineNumber);
+      localStorage.removeItem("pdi_cache_" + offlineSession.machineNumber);
+      btn.style.display = "none";
+      document.getElementById("offline-post-upload").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Upload";
+  }
 }
 
 // ============================================================
