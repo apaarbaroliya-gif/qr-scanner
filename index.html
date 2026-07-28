@@ -311,6 +311,7 @@ function showScreen(id) {
 function goHome() {
   stopScanner();
   showScreen("screen-home");
+  syncSessionWithServer();
 }
 
 // Intercept hardware back button: trap on current screen instead of leaving app
@@ -341,6 +342,7 @@ async function doLogin() {
       await loadDropdownData();
       renderHome();
       showScreen("screen-home");
+      startSessionWatcher();
     } else {
       showAlert(alertEl, "error", data.error || "Login failed.");
       if (data.needsRegistration) {
@@ -696,23 +698,61 @@ function escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt
 // ============================================================
 // REMEMBERED DEVICE - skip login if this device already has a saved session
 // ============================================================
+// ============================================================
+// REMEMBERED DEVICE - skip login if this device already has a saved session,
+// but always re-verify with the server first (catches admin changes:
+// user removed, role cleared, or module Yes/No flags changed)
+// ============================================================
 function initApp() {
+  let saved = null;
   try {
-    const saved = localStorage.getItem("wwa_user");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.username && Array.isArray(parsed.modules)) {
-        currentUser = parsed.username;
-        currentModules = parsed.modules;
-        renderHome();
-        showScreen("screen-home");
-        loadDropdownData(); // refresh dropdown lists in the background
-        return;
-      }
-    }
-  } catch (e) { /* corrupted saved data - fall through to login */ }
-  showScreen("screen-login");
+    const raw = localStorage.getItem("wwa_user");
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; }
+
+  if (saved && saved.username) {
+    // Show Home immediately with cached data for a fast, offline-friendly open...
+    currentUser = saved.username;
+    currentModules = saved.modules || [];
+    renderHome();
+    showScreen("screen-home");
+    loadDropdownData();
+    // ...then verify with the server in the background and correct if anything changed.
+    syncSessionWithServer();
+    startSessionWatcher();
+  } else {
+    showScreen("screen-login");
+  }
 }
+
+async function syncSessionWithServer() {
+  if (!currentUser) return;
+  try {
+    const data = await callApi("refreshSession", { username: currentUser });
+    if (data.success) {
+      const modulesChanged = JSON.stringify(data.modules) !== JSON.stringify(currentModules);
+      currentModules = data.modules || [];
+      try { localStorage.setItem("wwa_user", JSON.stringify({ username: currentUser, modules: currentModules })); } catch (e) {}
+      if (modulesChanged && document.getElementById("screen-home").classList.contains("active")) {
+        renderHome();
+        showToast("Your available modules were updated.");
+      }
+    } else if (data.revoked) {
+      showToast(data.error || "Your access has been revoked.");
+      logout();
+    }
+  } catch (e) { /* network hiccup - keep cached session, try again next cycle */ }
+}
+
+let sessionWatcherStarted = false;
+function startSessionWatcher() {
+  if (sessionWatcherStarted) return;
+  sessionWatcherStarted = true;
+  setInterval(() => {
+    if (currentUser) syncSessionWithServer();
+  }, 60000); // re-check every 60 seconds while the app is open
+}
+
 initApp();
 
 // ============================================================
