@@ -95,23 +95,12 @@
   .cost-wrap { position: relative; }
   .cost-prefix { position:absolute; left: 14px; top: 12px; color: var(--muted); }
   .cost-wrap input { padding-left: 28px; }
-  .lang-toggle { position: fixed; top: 14px; right: 14px; background: var(--card); border: 1px solid var(--border);
-    border-radius: 20px; padding: 6px 12px; font-size: 12px; color: var(--text); z-index: 50; cursor:pointer; }
-  /* Hide Google Translate's default banner/toolbar UI - we drive it with our own button */
-  #google_translate_element { display:none !important; }
-  .goog-te-banner-frame.skiptranslate { display:none !important; }
-  body { top: 0px !important; }
-  .goog-te-gadget { display:none !important; }
-  .goog-tooltip, .goog-tooltip:hover { display:none !important; visibility:hidden !important; }
-  .goog-text-highlight { background:none !important; box-shadow:none !important; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--card);
     border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 10px;
     font-size: 13px; display:none; z-index: 100; max-width: 90%; text-align:center; }
 </style>
 </head>
 <body>
-<button class="lang-toggle" id="lang-toggle-btn" onclick="toggleLanguage()">&#127760; हिंदी</button>
-<div id="google_translate_element"></div>
 <div id="app">
 
   <!-- SCREEN: LOGIN -->
@@ -351,7 +340,6 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <script>
 // ============================================================
 // CONFIG - paste your deployed Apps Script Web App URL here
@@ -623,7 +611,7 @@ function selectDropdownValue(which, m) {
   else if (which === "outmachine") selectedOutMachine = m;
   else if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "location") selectedLocation = m;
-  else if (which === "pdimachine") selectedPdiMachine = m;
+  else if (which === "pdimachine") { selectedPdiMachine = m; if (pdiMachineType) refreshPdiSections(); }
   else selectedLaborMachine = m;
 }
 
@@ -885,23 +873,32 @@ function resetPdiSelectScreen() {
 
 async function onPdiMachineTypeChange() {
   const machineType = document.getElementById("pdi-machine-type-select").value;
+  pdiMachineType = machineType;
+  if (!machineType) {
+    document.getElementById("pdi-section-select").innerHTML = '<option value="">Select Machine Type first</option>';
+    return;
+  }
+  await refreshPdiSections();
+}
+
+async function refreshPdiSections() {
   const sectionSel = document.getElementById("pdi-section-select");
   const alertEl = document.getElementById("alert-pdi-select");
   hideAlert(alertEl);
-  pdiMachineType = machineType;
+  if (!pdiMachineType) return;
   sectionSel.innerHTML = '<option value="">Loading sections...</option>';
-  if (!machineType) {
-    sectionSel.innerHTML = '<option value="">Select Machine Type first</option>';
-    return;
-  }
   try {
-    const data = await callApi("getPdiSections", { machineType });
+    const data = await callApi("getPdiSections", { machineType: pdiMachineType, machineNumber: selectedPdiMachine });
     if (data.success) {
       pdiSpreadsheetId = data.pdiSpreadsheetId;
-      sectionSel.innerHTML = '<option value="">Select Section</option>';
-      (data.sections || []).forEach(s => {
-        const opt = document.createElement("option"); opt.value = s; opt.textContent = s; sectionSel.appendChild(opt);
-      });
+      if ((data.sections || []).length === 0) {
+        sectionSel.innerHTML = '<option value="">No pending sections for this machine</option>';
+      } else {
+        sectionSel.innerHTML = '<option value="">Select Section</option>';
+        data.sections.forEach(s => {
+          const opt = document.createElement("option"); opt.value = s; opt.textContent = s; sectionSel.appendChild(opt);
+        });
+      }
     } else {
       sectionSel.innerHTML = '<option value="">No sections found</option>';
       showAlert(alertEl, "error", data.error || "Could not load sections.");
@@ -1115,56 +1112,6 @@ function startSessionWatcher() {
 }
 
 initApp();
-
-// ============================================================
-// GOOGLE TRANSLATE (English / Hindi) - app-wide toggle
-// ============================================================
-function googleTranslateElementInit() {
-  new google.translate.TranslateElement(
-    { pageLanguage: "en", includedLanguages: "hi", layout: google.translate.TranslateElement.InlineLayout.SIMPLE, autoDisplay: false },
-    "google_translate_element"
-  );
-}
-
-function getCookie(name) {
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-function setGoogTransCookie(langpair) {
-  document.cookie = "googtrans=" + langpair + ";path=/";
-  document.cookie = "googtrans=" + langpair + ";path=/;domain=" + location.hostname;
-}
-
-function toggleLanguage() {
-  const combo = document.querySelector(".goog-te-combo");
-  const current = getCookie("googtrans");
-  const isHindi = current && current.indexOf("/hi") >= 0;
-  const btn = document.getElementById("lang-toggle-btn");
-
-  if (isHindi) {
-    setGoogTransCookie("/en/en");
-    if (combo) { combo.value = "en"; combo.dispatchEvent(new Event("change")); }
-    else location.reload();
-    btn.innerHTML = "&#127760; हिंदी";
-  } else {
-    setGoogTransCookie("/en/hi");
-    if (combo) { combo.value = "hi"; combo.dispatchEvent(new Event("change")); }
-    else location.reload();
-    btn.innerHTML = "&#127760; English";
-  }
-}
-
-// If a language was already chosen on a previous visit, reflect that in the button label
-(function restoreLanguageButtonLabel() {
-  const current = getCookie("googtrans");
-  if (current && current.indexOf("/hi") >= 0) {
-    document.addEventListener("DOMContentLoaded", () => {
-      const btn = document.getElementById("lang-toggle-btn");
-      if (btn) btn.innerHTML = "&#127760; English";
-    });
-  }
-})();
 
 // ============================================================
 // PWA / SERVICE WORKER (silent auto-update)
