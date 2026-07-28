@@ -89,13 +89,22 @@
   .cost-prefix { position:absolute; left: 14px; top: 12px; color: var(--muted); }
   .cost-wrap input { padding-left: 28px; }
   .lang-toggle { position: fixed; top: 14px; right: 14px; background: var(--card); border: 1px solid var(--border);
-    border-radius: 20px; padding: 6px 12px; font-size: 12px; color: var(--text); z-index: 50; }
+    border-radius: 20px; padding: 6px 12px; font-size: 12px; color: var(--text); z-index: 50; cursor:pointer; }
+  /* Hide Google Translate's default banner/toolbar UI - we drive it with our own button */
+  #google_translate_element { display:none !important; }
+  .goog-te-banner-frame.skiptranslate { display:none !important; }
+  body { top: 0px !important; }
+  .goog-te-gadget { display:none !important; }
+  .goog-tooltip, .goog-tooltip:hover { display:none !important; visibility:hidden !important; }
+  .goog-text-highlight { background:none !important; box-shadow:none !important; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--card);
     border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 10px;
     font-size: 13px; display:none; z-index: 100; max-width: 90%; text-align:center; }
 </style>
 </head>
 <body>
+<button class="lang-toggle" id="lang-toggle-btn" onclick="toggleLanguage()">&#127760; हिंदी</button>
+<div id="google_translate_element"></div>
 <div id="app">
 
   <!-- SCREEN: LOGIN -->
@@ -245,10 +254,44 @@
     </div>
   </div>
 
+  <!-- SCREEN: MACHINE MOVEMENT -->
+  <div class="screen" id="screen-machine-movement">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Machine Movement</span>
+    </div>
+    <div class="card">
+      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="movementmachine-search" autocomplete="off" inputmode="numeric"
+          placeholder="Type to search..." oninput="filterDropdown('movementmachine')"
+          onfocus="filterDropdown('movementmachine')" onblur="onDropdownBlur('movementmachine')">
+        <div class="search-dropdown" id="movementmachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="movementmachine-badge"></div>
+
+      <label>Location</label>
+      <div class="search-wrap">
+        <input type="text" id="location-search" autocomplete="off"
+          placeholder="Type to search location..." oninput="filterDropdown('location')"
+          onfocus="filterDropdown('location')" onblur="onDropdownBlur('location')">
+        <div class="search-dropdown" id="location-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="location-badge"></div>
+    </div>
+    <button class="btn btn-success" id="btn-submit-movement" onclick="submitMovementData()">Submit to Sheet</button>
+    <div class="alert" id="alert-submit-movement"></div>
+    <div id="movement-post-submit" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="submitNewMovementResponse()">Submit New Response</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
 </div>
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <script>
 // ============================================================
 // CONFIG - paste your deployed Apps Script Web App URL here
@@ -265,6 +308,7 @@ let dropdownData = { machineNumbers: [], reasons: [], outsideLaborList: [], loca
 let currentModuleType = ""; // "Transfer Order" or "Move Order"
 let scannedQR = "";
 let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
+let selectedMovementMachine = "", selectedLocation = "";
 let html5QrCode = null;
 let scannerRunning = false;
 let torchOn = false;
@@ -450,6 +494,9 @@ function openModule(mod) {
   } else if (mod === "Outside Labor") {
     resetLaborScreen();
     showScreen("screen-labor");
+  } else if (mod === "Machine Movement") {
+    resetMovementScreen();
+    showScreen("screen-machine-movement");
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -463,8 +510,10 @@ function filterDropdown(which) {
   const dropdown = document.getElementById(which + "-dropdown");
   const query = inputEl.value.trim();
   dropdown.innerHTML = "";
-  const list = dropdownData.machineNumbers || [];
+  const isLocation = which === "location";
+  const list = isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
   const filtered = list.filter(m => {
+    if (isLocation) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
@@ -499,12 +548,14 @@ function selectDropdownValue(which, m) {
   badge.classList.add("show");
   if (which === "machine") selectedMachine = m;
   else if (which === "outmachine") selectedOutMachine = m;
+  else if (which === "movementmachine") selectedMovementMachine = m;
+  else if (which === "location") selectedLocation = m;
   else selectedLaborMachine = m;
 }
 
 function resetDropdownSelections() {
-  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = "";
-  ["machine", "outmachine", "labormachine"].forEach(which => {
+  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -689,6 +740,48 @@ function submitNewLaborResponse() {
 }
 
 // ============================================================
+// MACHINE MOVEMENT SCREEN
+// ============================================================
+function resetMovementScreen() {
+  resetDropdownSelections();
+  document.getElementById("btn-submit-movement").style.display = "block";
+  document.getElementById("movement-post-submit").style.display = "none";
+  hideAlert(document.getElementById("alert-submit-movement"));
+}
+
+async function submitMovementData() {
+  const alertEl = document.getElementById("alert-submit-movement");
+  const btn = document.getElementById("btn-submit-movement");
+  hideAlert(alertEl);
+
+  if (!selectedMovementMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  if (!selectedLocation) { showAlert(alertEl, "error", "Please select a Location."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  try {
+    const data = await callApi("submitMachineMovement", {
+      username: currentUser, machineNumber: selectedMovementMachine, location: selectedLocation
+    });
+    if (data.success) {
+      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      btn.style.display = "none";
+      document.getElementById("movement-post-submit").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+  }
+}
+
+function submitNewMovementResponse() {
+  resetMovementScreen();
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 function showAlert(el, type, msg) { el.className = "alert alert-" + type + " show"; el.textContent = msg; }
@@ -754,6 +847,56 @@ function startSessionWatcher() {
 }
 
 initApp();
+
+// ============================================================
+// GOOGLE TRANSLATE (English / Hindi) - app-wide toggle
+// ============================================================
+function googleTranslateElementInit() {
+  new google.translate.TranslateElement(
+    { pageLanguage: "en", includedLanguages: "hi", layout: google.translate.TranslateElement.InlineLayout.SIMPLE, autoDisplay: false },
+    "google_translate_element"
+  );
+}
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setGoogTransCookie(langpair) {
+  document.cookie = "googtrans=" + langpair + ";path=/";
+  document.cookie = "googtrans=" + langpair + ";path=/;domain=" + location.hostname;
+}
+
+function toggleLanguage() {
+  const combo = document.querySelector(".goog-te-combo");
+  const current = getCookie("googtrans");
+  const isHindi = current && current.indexOf("/hi") >= 0;
+  const btn = document.getElementById("lang-toggle-btn");
+
+  if (isHindi) {
+    setGoogTransCookie("/en/en");
+    if (combo) { combo.value = "en"; combo.dispatchEvent(new Event("change")); }
+    else location.reload();
+    btn.innerHTML = "&#127760; हिंदी";
+  } else {
+    setGoogTransCookie("/en/hi");
+    if (combo) { combo.value = "hi"; combo.dispatchEvent(new Event("change")); }
+    else location.reload();
+    btn.innerHTML = "&#127760; English";
+  }
+}
+
+// If a language was already chosen on a previous visit, reflect that in the button label
+(function restoreLanguageButtonLabel() {
+  const current = getCookie("googtrans");
+  if (current && current.indexOf("/hi") >= 0) {
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("lang-toggle-btn");
+      if (btn) btn.innerHTML = "&#127760; English";
+    });
+  }
+})();
 
 // ============================================================
 // PWA / SERVICE WORKER (silent auto-update)
