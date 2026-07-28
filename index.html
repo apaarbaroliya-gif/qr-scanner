@@ -1012,11 +1012,6 @@ async function finishPdiSection() {
     if (set) set.forEach(opt => selections.push({ page: page.pageName, option: opt }));
   });
 
-  if (selections.length === 0) {
-    showAlert(alertEl, "error", "Please select at least one option before finishing this Section.");
-    return;
-  }
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
   try {
     const data = await callApi("submitPdiSection", {
@@ -1024,7 +1019,8 @@ async function finishPdiSection() {
       machineNumber: selectedPdiMachine, section: pdiSection, selections: selections
     });
     if (data.success) {
-      showAlert(alertEl, "success", "Section completed and saved (" + data.savedCount + " item(s)). This section is now locked.");
+      const savedMsg = data.savedCount > 0 ? "Section completed and saved (" + data.savedCount + " item(s))." : "Section marked complete (no options were selected).";
+      showAlert(alertEl, "success", savedMsg + " This section is now locked.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       document.getElementById("btn-pdi-prev").style.display = "none";
       document.getElementById("btn-pdi-next").style.display = "none";
@@ -1040,10 +1036,11 @@ async function finishPdiSection() {
   }
 }
 
-function startAnotherPdiSection() {
+async function startAnotherPdiSection() {
   resetPdiSelectScreen();
-  populatePdiMachineTypes();
   showScreen("screen-pdi-select");
+  await loadDropdownData(); // refresh Machine Types / Machine Numbers from the sheet
+  populatePdiMachineTypes();
 }
 
 // ============================================================
