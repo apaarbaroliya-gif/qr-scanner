@@ -328,6 +328,13 @@
     <div class="card">
       <label>Machine Number</label>
       <input type="text" id="md-machine-display" disabled>
+      <div class="search-wrap" id="md-machine-search-wrap" style="display:none">
+        <input type="text" id="addmdmachine-search" autocomplete="off" inputmode="numeric"
+          placeholder="Type to search..." oninput="filterDropdown('addmdmachine')"
+          onfocus="filterDropdown('addmdmachine')" onblur="onDropdownBlur('addmdmachine')">
+        <div class="search-dropdown" id="addmdmachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="addmdmachine-badge"></div>
 
       <label>Serial Number <span style="color:var(--muted)">(up to 17 characters)</span></label>
       <input type="text" id="md-serial" maxlength="17" placeholder="Serial Number">
@@ -345,9 +352,22 @@
 
       <label>HMR</label>
       <input type="number" id="md-hmr" step="0.01" placeholder="e.g. 1234.50">
+
+      <label>Model</label>
+      <select id="md-model"><option value="">Select Model</option></select>
+
+      <label>Engine Type</label>
+      <select id="md-engine-type"><option value="">Select Engine Type</option></select>
+
+      <label>Hyd. Pump Type</label>
+      <select id="md-hyd-pump-type"><option value="">Select Hyd. Pump Type</option></select>
     </div>
     <button class="btn btn-success" id="btn-save-machine-details" onclick="saveMachineDetailsAndContinue()">Save &amp; Continue</button>
     <div class="alert" id="alert-machine-details"></div>
+    <div id="machine-details-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetAddMachineDetailsForm()">Add Another</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
   </div>
 
   <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS (Online) -->
@@ -408,6 +428,55 @@
     </div>
   </div>
 
+  <!-- SCREEN: TASK ADMIN -->
+  <div class="screen" id="screen-task-admin">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Task Admin</span>
+    </div>
+    <div class="card">
+      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="taskadminmachine-search" autocomplete="off" inputmode="numeric"
+          placeholder="Type to search..." oninput="filterDropdown('taskadminmachine')"
+          onfocus="filterDropdown('taskadminmachine')" onblur="onDropdownBlur('taskadminmachine')">
+        <div class="search-dropdown" id="taskadminmachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="taskadminmachine-badge"></div>
+
+      <label>Section</label>
+      <div class="search-wrap">
+        <input type="text" id="taskadminsection-search" autocomplete="off"
+          placeholder="Type to search section..." oninput="filterDropdown('taskadminsection')"
+          onfocus="filterDropdown('taskadminsection')" onblur="onDropdownBlur('taskadminsection')">
+        <div class="search-dropdown" id="taskadminsection-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="taskadminsection-badge"></div>
+
+      <label>Page Name</label>
+      <div class="search-wrap">
+        <input type="text" id="taskadminpage-search" autocomplete="off"
+          placeholder="Select a Section first" disabled oninput="filterDropdown('taskadminpage')"
+          onfocus="filterDropdown('taskadminpage')" onblur="onDropdownBlur('taskadminpage')">
+        <div class="search-dropdown" id="taskadminpage-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="taskadminpage-badge"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-task-admin-enter" onclick="taskAdminEnter()">Enter</button>
+    <div class="alert" id="alert-task-admin-select"></div>
+
+    <div class="card" id="task-admin-options-card" style="display:none">
+      <h4 id="task-admin-page-title" style="margin-bottom:10px"></h4>
+      <div id="task-admin-options-list"></div>
+    </div>
+    <button class="btn btn-success" id="btn-task-admin-save" style="display:none" onclick="taskAdminSave()">Save</button>
+    <div class="alert" id="alert-task-admin-save"></div>
+    <div id="task-admin-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetTaskAdminScreen()">Add New Task</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
   <!-- SCREEN: TASK MANAGER - LIST (shared by both modules) -->
   <div class="screen" id="screen-task-list">
     <div class="topbar">
@@ -455,6 +524,13 @@ let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
 let selectedMovementMachine = "", selectedLocation = "";
 let selectedPdiMachine = "";
 let selectedMdYom = "";
+let mdEntryMode = "pdi"; // "pdi" (gate before PDI) or "addDetails" (standalone module)
+
+// Task Admin state
+let selectedTaskAdminMachine = "", selectedTaskAdminSection = "", selectedTaskAdminPage = "";
+let taskAdminSectionsList = [];
+let taskAdminPagesList = [];
+let taskAdminSpreadsheetId = "";
 
 // Month/Year list for the Machine Details YOM dropdown: Jan 2012 through the current month, newest first
 const YOM_OPTIONS = (function () {
@@ -496,6 +572,8 @@ const MODULE_META = {
   "Outside Labor": { icon: "&#128119;", desc: "No QR scan - enter labor and cost details" },
   "Machine Movement": { icon: "&#128664;", desc: "Log machine location changes" },
   "Machine PDI": { icon: "&#128203;", desc: "Pre-delivery inspection" },
+  "Task Admin": { icon: "&#128736;", desc: "Add pre-approved tasks directly" },
+  "Add Machine Details": { icon: "&#128202;", desc: "Register machine details without starting a PDI" },
   "Assign Task": { icon: "&#128204;", desc: "Assign approved tasks to employees" },
   "Mark Task as Completed": { icon: "&#9989;", desc: "Close out assigned tasks" }
 };
@@ -681,6 +759,15 @@ async function openModule(mod) {
     await loadDropdownData();
     resetPdiSelectScreen(); // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
     showScreen("screen-pdi-select");
+  } else if (mod === "Task Admin") {
+    await loadDropdownData();
+    resetTaskAdminScreen();
+    showScreen("screen-task-admin");
+  } else if (mod === "Add Machine Details") {
+    await loadDropdownData();
+    mdEntryMode = "addDetails";
+    resetAddMachineDetailsForm();
+    showScreen("screen-machine-details");
   } else if (mod === "Assign Task" || mod === "Mark Task as Completed") {
     taskMode = (mod === "Assign Task") ? "assign" : "complete";
     taskMachineType = DEFAULT_MACHINE_TYPE;
@@ -703,6 +790,8 @@ function filterDropdown(which) {
   const isLocation = which === "location";
   const isEmployee = which.indexOf("assignee-") === 0;
   const isYom = which === "mdyom";
+  const isTaskAdminSection = which === "taskadminsection";
+  const isTaskAdminPage = which === "taskadminpage";
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -713,10 +802,13 @@ function filterDropdown(which) {
     if (badge) { badge.classList.remove("show"); badge.textContent = ""; }
   }
 
-  const list = isEmployee ? (dropdownData.employees || []) : isYom ? YOM_OPTIONS : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
-  const noResultsLabel = isEmployee ? "No employees found" : isYom ? "No matches found" : "No machines found";
+  const list = isEmployee ? (dropdownData.employees || []) : isYom ? YOM_OPTIONS
+    : isTaskAdminSection ? taskAdminSectionsList : isTaskAdminPage ? taskAdminPagesList
+    : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
+  const noResultsLabel = isEmployee ? "No employees found" : isYom ? "No matches found"
+    : (isTaskAdminSection || isTaskAdminPage) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
-    if (isLocation || isEmployee || isYom) return m.toLowerCase().includes(query.toLowerCase());
+    if (isLocation || isEmployee || isYom || isTaskAdminSection || isTaskAdminPage) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
@@ -755,6 +847,10 @@ function selectDropdownValue(which, m) {
   else if (which === "location") selectedLocation = m;
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
   else if (which === "mdyom") selectedMdYom = m;
+  else if (which === "taskadminmachine") selectedTaskAdminMachine = m;
+  else if (which === "taskadminsection") { selectedTaskAdminSection = m; onTaskAdminSectionSelected(); }
+  else if (which === "taskadminpage") selectedTaskAdminPage = m;
+  else if (which === "addmdmachine") mdTargetMachine = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -1049,6 +1145,19 @@ function continueUncompletedPdi(machineNumber) {
 // ---- Machine Details gate ----
 let pendingPdiModeAfterDetails = ""; // "online" or "offline"
 
+let mdTargetMachine = ""; // the machine currently being edited on screen-machine-details
+
+function populateMachineDetailsSelects() {
+  const fill = (id, list) => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = sel.options[0].outerHTML; // keep the "Select..." placeholder
+    (list || []).forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+  };
+  fill("md-model", dropdownData.models);
+  fill("md-engine-type", dropdownData.engineTypes);
+  fill("md-hyd-pump-type", dropdownData.hydPumpTypes);
+}
+
 async function ensureMachineDetailsThenStart(mode) {
   const alertEl = document.getElementById("alert-pdi-select");
   hideAlert(alertEl);
@@ -1061,16 +1170,13 @@ async function ensureMachineDetailsThenStart(mode) {
       if (mode === "online") proceedOnlinePdi();
       else proceedOfflinePdi();
     } else {
+      mdEntryMode = "pdi";
       pendingPdiModeAfterDetails = mode;
+      mdTargetMachine = selectedPdiMachine;
+      document.getElementById("md-machine-search-wrap").style.display = "none";
+      document.getElementById("md-machine-display").style.display = "block";
       document.getElementById("md-machine-display").value = selectedPdiMachine;
-      document.getElementById("md-serial").value = "";
-      document.getElementById("md-hp").value = "";
-      document.getElementById("md-hmr").value = "";
-      document.getElementById("md-yom-search").value = "";
-      const badge = document.getElementById("mdyom-badge");
-      badge.classList.remove("show"); badge.textContent = "";
-      selectedMdYom = "";
-      hideAlert(document.getElementById("alert-machine-details"));
+      resetMachineDetailsFormFields();
       showScreen("screen-machine-details");
     }
   } catch (e) {
@@ -1081,28 +1187,74 @@ async function ensureMachineDetailsThenStart(mode) {
 function startOnlinePdiFlow() { ensureMachineDetailsThenStart("online"); }
 function startOfflinePdiFlow() { ensureMachineDetailsThenStart("offline"); }
 
+function resetMachineDetailsFormFields() {
+  document.getElementById("md-serial").value = "";
+  document.getElementById("md-hp").value = "";
+  document.getElementById("md-hmr").value = "";
+  document.getElementById("md-yom-search").value = "";
+  document.getElementById("md-model").value = "";
+  document.getElementById("md-engine-type").value = "";
+  document.getElementById("md-hyd-pump-type").value = "";
+  const badge = document.getElementById("mdyom-badge");
+  badge.classList.remove("show"); badge.textContent = "";
+  selectedMdYom = "";
+  document.getElementById("machine-details-post-save").style.display = "none";
+  document.getElementById("btn-save-machine-details").style.display = "block";
+  hideAlert(document.getElementById("alert-machine-details"));
+  populateMachineDetailsSelects();
+}
+
+// Entry point for the standalone "Add Machine Details" module
+function resetAddMachineDetailsForm() {
+  mdEntryMode = "addDetails";
+  mdTargetMachine = "";
+  document.getElementById("md-machine-search-wrap").style.display = "block";
+  document.getElementById("md-machine-display").style.display = "none";
+  document.getElementById("addmdmachine-search").value = "";
+  const mBadge = document.getElementById("addmdmachine-badge");
+  mBadge.classList.remove("show"); mBadge.textContent = "";
+  resetMachineDetailsFormFields();
+}
+
 async function saveMachineDetailsAndContinue() {
   const alertEl = document.getElementById("alert-machine-details");
   const btn = document.getElementById("btn-save-machine-details");
   hideAlert(alertEl);
 
+  const targetMachine = (mdEntryMode === "addDetails") ? mdTargetMachine : selectedPdiMachine;
+  if (!targetMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+
   const serial = document.getElementById("md-serial").value.trim();
   const hp = document.getElementById("md-hp").value;
   const hmr = document.getElementById("md-hmr").value;
+  const model = document.getElementById("md-model").value;
+  const engineType = document.getElementById("md-engine-type").value;
+  const hydPumpType = document.getElementById("md-hyd-pump-type").value;
 
   if (!serial) { showAlert(alertEl, "error", "Serial Number is required."); return; }
   if (!selectedMdYom) { showAlert(alertEl, "error", "Please select YOM."); return; }
   if (hp === "" || isNaN(parseFloat(hp))) { showAlert(alertEl, "error", "Please enter a valid HP."); return; }
   if (hmr === "" || isNaN(parseFloat(hmr))) { showAlert(alertEl, "error", "Please enter a valid HMR."); return; }
+  if (!model) { showAlert(alertEl, "error", "Please select a Model."); return; }
+  if (!engineType) { showAlert(alertEl, "error", "Please select an Engine Type."); return; }
+  if (!hydPumpType) { showAlert(alertEl, "error", "Please select a Hyd. Pump Type."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
   try {
     const data = await callApi("saveMachineDetails", {
-      machineNumber: selectedPdiMachine, serialNumber: serial, yom: selectedMdYom, hp: hp, hmr: hmr
+      machineNumber: targetMachine, serialNumber: serial, yom: selectedMdYom,
+      hp: hp, hmr: hmr, model: model, engineType: engineType, hydPumpType: hydPumpType
     });
     if (data.success) {
-      if (pendingPdiModeAfterDetails === "online") proceedOnlinePdi();
-      else proceedOfflinePdi();
+      if (mdEntryMode === "addDetails") {
+        showAlert(alertEl, "success", data.alreadyExisted ? "Machine Details already existed on file for this machine." : "Machine Details saved.");
+        btn.style.display = "none";
+        document.getElementById("machine-details-post-save").style.display = "block";
+      } else if (pendingPdiModeAfterDetails === "online") {
+        proceedOnlinePdi();
+      } else {
+        proceedOfflinePdi();
+      }
     } else {
       showAlert(alertEl, "error", data.error || "Could not save Machine Details.");
     }
@@ -1302,6 +1454,144 @@ async function startAnotherPdiSection() {
   await loadDropdownData();
   resetPdiSelectScreen();
   showScreen("screen-pdi-select");
+}
+
+// ============================================================
+// TASK ADMIN (ad-hoc: add auto-approved tasks for any Machine/Section/Page)
+// ============================================================
+function resetTaskAdminScreen() {
+  resetDropdownSelections();
+  selectedTaskAdminMachine = ""; selectedTaskAdminSection = ""; selectedTaskAdminPage = "";
+  taskAdminSectionsList = []; taskAdminPagesList = []; taskAdminSpreadsheetId = "";
+  document.getElementById("taskadminmachine-search").value = "";
+  document.getElementById("taskadminsection-search").value = "";
+  document.getElementById("taskadminpage-search").value = "";
+  document.getElementById("taskadminpage-search").disabled = true;
+  document.getElementById("taskadminpage-search").placeholder = "Select a Section first";
+  ["taskadminmachine", "taskadminsection", "taskadminpage"].forEach(w => {
+    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
+  });
+  document.getElementById("task-admin-options-card").style.display = "none";
+  document.getElementById("btn-task-admin-save").style.display = "none";
+  document.getElementById("btn-task-admin-enter").style.display = "block";
+  document.getElementById("task-admin-post-save").style.display = "none";
+  hideAlert(document.getElementById("alert-task-admin-select"));
+  hideAlert(document.getElementById("alert-task-admin-save"));
+  loadTaskAdminSections();
+}
+
+async function loadTaskAdminSections() {
+  try {
+    const data = await callApi("getPdiSections", { machineType: DEFAULT_MACHINE_TYPE });
+    if (data.success) {
+      taskAdminSectionsList = data.sections || [];
+      taskAdminSpreadsheetId = data.pdiSpreadsheetId;
+    }
+  } catch (e) { /* section search will just show no results if this failed */ }
+}
+
+async function onTaskAdminSectionSelected() {
+  const pageInput = document.getElementById("taskadminpage-search");
+  pageInput.value = ""; pageInput.disabled = true; pageInput.placeholder = "Loading pages...";
+  selectedTaskAdminPage = "";
+  const badge = document.getElementById("taskadminpage-badge");
+  badge.classList.remove("show"); badge.textContent = "";
+  try {
+    const data = await callApi("getPagesForSection", { machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection });
+    if (data.success) {
+      taskAdminPagesList = data.pages || [];
+      pageInput.disabled = false;
+      pageInput.placeholder = "Type to search page...";
+    } else {
+      pageInput.placeholder = "Could not load pages";
+    }
+  } catch (e) {
+    pageInput.placeholder = "Could not load pages";
+  }
+}
+
+async function taskAdminEnter() {
+  const alertEl = document.getElementById("alert-task-admin-select");
+  const btn = document.getElementById("btn-task-admin-enter");
+  hideAlert(alertEl);
+
+  if (!selectedTaskAdminMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  if (!selectedTaskAdminSection) { showAlert(alertEl, "error", "Please select a Section."); return; }
+  if (!selectedTaskAdminPage) { showAlert(alertEl, "error", "Please select a Page Name."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
+  try {
+    const data = await callApi("getOptionsForPage", {
+      machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection, page: selectedTaskAdminPage
+    });
+    if (data.success) {
+      taskAdminSpreadsheetId = data.pdiSpreadsheetId;
+      renderTaskAdminOptions(data.options || []);
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not load options.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Enter";
+  }
+}
+
+let taskAdminSelectedOptions = new Set();
+
+function renderTaskAdminOptions(options) {
+  taskAdminSelectedOptions = new Set();
+  document.getElementById("task-admin-page-title").textContent = selectedTaskAdminSection + " \u2014 " + selectedTaskAdminPage;
+  const listEl = document.getElementById("task-admin-options-list");
+  listEl.innerHTML = "";
+  if (options.length === 0) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:14px">No options found for this Page.</p>';
+  } else {
+    options.forEach((opt, idx) => {
+      const id = "task-admin-opt-" + idx;
+      const row = document.createElement("div");
+      row.className = "option-item";
+      row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(opt) + '</label>';
+      row.querySelector("input").addEventListener("change", (e) => {
+        if (e.target.checked) taskAdminSelectedOptions.add(opt);
+        else taskAdminSelectedOptions.delete(opt);
+      });
+      listEl.appendChild(row);
+    });
+  }
+  document.getElementById("task-admin-options-card").style.display = "block";
+  document.getElementById("btn-task-admin-save").style.display = "block";
+  document.getElementById("btn-task-admin-enter").style.display = "none";
+}
+
+async function taskAdminSave() {
+  const alertEl = document.getElementById("alert-task-admin-save");
+  const btn = document.getElementById("btn-task-admin-save");
+  hideAlert(alertEl);
+
+  const options = Array.from(taskAdminSelectedOptions);
+  if (options.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  try {
+    const data = await callApi("saveTaskAdminPage", {
+      pdiSpreadsheetId: taskAdminSpreadsheetId, username: currentUser,
+      machineNumber: selectedTaskAdminMachine, section: selectedTaskAdminSection,
+      page: selectedTaskAdminPage, options: options
+    });
+    if (data.success) {
+      showAlert(alertEl, "success", data.savedCount + " item(s) saved and auto-approved.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      btn.style.display = "none";
+      document.getElementById("task-admin-post-save").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Save";
+  }
 }
 
 // ---- OFFLINE PDI ----
