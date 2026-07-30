@@ -88,6 +88,11 @@
   .assignee-row { display:flex; gap:8px; margin-top:8px; }
   .assignee-row select { flex:1; }
   .task-count-text { font-size: 12px; color: var(--muted); margin: 6px 0 10px; text-align:center; }
+  #busy-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200;
+    display:none; align-items:center; justify-content:center; }
+  #busy-overlay.show { display:flex; }
+  #busy-overlay .busy-spinner { width: 36px; height: 36px; border: 4px solid rgba(255,255,255,.3);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -337,15 +342,10 @@
       <div class="selected-badge" id="addmdmachine-badge"></div>
 
       <label>Serial Number <span style="color:var(--muted)">(up to 17 characters)</span></label>
-      <input type="text" id="md-serial" maxlength="17" placeholder="Serial Number">
+      <input type="text" id="md-serial" maxlength="17" placeholder="Serial Number" oninput="this.value = this.value.toUpperCase()">
 
-      <label>YOM <span style="color:var(--muted)">(Year of Manufacture)</span></label>
-      <div class="search-wrap">
-        <input type="text" id="md-yom-search" autocomplete="off" placeholder="Type to search month/year..."
-          oninput="filterDropdown('mdyom')" onfocus="filterDropdown('mdyom')" onblur="onDropdownBlur('mdyom')">
-        <div class="search-dropdown" id="mdyom-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="mdyom-badge"></div>
+      <label>YOM <span style="color:var(--muted)">(format: MMM YYYY, e.g. MAR 2020)</span></label>
+      <input type="text" id="md-yom" maxlength="8" placeholder="e.g. MAR 2020" oninput="this.value = this.value.toUpperCase()">
 
       <label>HP</label>
       <input type="number" id="md-hp" step="0.01" placeholder="e.g. 45.50">
@@ -452,27 +452,16 @@
         <div class="search-dropdown" id="taskadminsection-dropdown"></div>
       </div>
       <div class="selected-badge" id="taskadminsection-badge"></div>
-
-      <label>Page Name</label>
-      <div class="search-wrap">
-        <input type="text" id="taskadminpage-search" autocomplete="off"
-          placeholder="Select a Section first" disabled oninput="filterDropdown('taskadminpage')"
-          onfocus="filterDropdown('taskadminpage')" onblur="onDropdownBlur('taskadminpage')">
-        <div class="search-dropdown" id="taskadminpage-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="taskadminpage-badge"></div>
     </div>
     <button class="btn btn-primary" id="btn-task-admin-enter" onclick="taskAdminEnter()">Enter</button>
     <div class="alert" id="alert-task-admin-select"></div>
 
-    <div class="card" id="task-admin-options-card" style="display:none">
-      <h4 id="task-admin-page-title" style="margin-bottom:10px"></h4>
-      <div id="task-admin-options-list"></div>
-    </div>
+    <div id="task-admin-widgets-container"></div>
     <button class="btn btn-success" id="btn-task-admin-save" style="display:none" onclick="taskAdminSave()">Save</button>
     <div class="alert" id="alert-task-admin-save"></div>
     <div id="task-admin-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetTaskAdminScreen()">Add New Task</button>
+      <button class="btn btn-success" onclick="taskAdminChooseAnotherSection()">Choose Another Section</button>
+      <button class="btn btn-primary" onclick="taskAdminAnotherMachine()">Another Machine</button>
       <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
     </div>
   </div>
@@ -502,6 +491,7 @@
 
 </div>
 <div id="toast"></div>
+<div id="busy-overlay"><div class="busy-spinner"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
@@ -598,6 +588,19 @@ function showToast(msg) {
   setTimeout(() => { t.style.display = "none"; }, 2500);
 }
 
+// Full-screen click-blocking overlay shown during Save/Submit operations, so a
+// user can't double-tap Save or tap elsewhere mid-save. Reference-counted so
+// overlapping calls (rare) don't hide it too early. Pure CSS - no performance cost.
+let busyOverlayCount = 0;
+function showBusyOverlay() {
+  busyOverlayCount++;
+  document.getElementById("busy-overlay").classList.add("show");
+}
+function hideBusyOverlay() {
+  busyOverlayCount = Math.max(0, busyOverlayCount - 1);
+  if (busyOverlayCount === 0) document.getElementById("busy-overlay").classList.remove("show");
+}
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -632,6 +635,7 @@ async function doLogin() {
   if (!username || !password) { showAlert(alertEl, "error", "Please enter username and password."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Logging in...';
+  showBusyOverlay();
   try {
     const data = await callApi("login", { username, password });
     if (data.success) {
@@ -652,6 +656,7 @@ async function doLogin() {
     showAlert(alertEl, "error", "Could not connect to server. Check your internet connection.");
   } finally {
     btn.disabled = false; btn.innerHTML = "Login";
+    hideBusyOverlay();
   }
 }
 
@@ -665,6 +670,7 @@ async function doRegister() {
   if (!username || !password) { showAlert(alertEl, "error", "Please enter username and password."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Registering...';
+  showBusyOverlay();
   try {
     const data = await callApi("register", { username, password });
     if (data.success) {
@@ -678,6 +684,7 @@ async function doRegister() {
     showAlert(alertEl, "error", "Could not connect to server.");
   } finally {
     btn.disabled = false; btn.innerHTML = "Register";
+    hideBusyOverlay();
   }
 }
 
@@ -848,7 +855,7 @@ function selectDropdownValue(which, m) {
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
   else if (which === "mdyom") selectedMdYom = m;
   else if (which === "taskadminmachine") selectedTaskAdminMachine = m;
-  else if (which === "taskadminsection") { selectedTaskAdminSection = m; onTaskAdminSectionSelected(); }
+  else if (which === "taskadminsection") selectedTaskAdminSection = m;
   else if (which === "taskadminpage") selectedTaskAdminPage = m;
   else if (which === "addmdmachine") mdTargetMachine = m;
   else if (which.indexOf("assignee-") === 0) {
@@ -971,6 +978,7 @@ async function submitScanData() {
   }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   try {
     const action = isMove ? "submitMoveOrder" : "submitTransferOrder";
     const payload = {
@@ -991,6 +999,7 @@ async function submitScanData() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+    hideBusyOverlay();
   }
 }
 
@@ -1023,6 +1032,7 @@ async function submitLaborData() {
   if (value === "" || isNaN(parseFloat(value)) || parseFloat(value) <= 0) { showAlert(alertEl, "error", "Please enter a valid value."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   try {
     const data = await callApi("submitOutsideLabor", {
       username: currentUser, machineNumber: selectedLaborMachine, outsideLabor: laborOption, value: parseFloat(value)
@@ -1039,6 +1049,7 @@ async function submitLaborData() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+    hideBusyOverlay();
   }
 }
 
@@ -1065,6 +1076,7 @@ async function submitMovementData() {
   if (!selectedLocation) { showAlert(alertEl, "error", "Please select a Location."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   try {
     const data = await callApi("submitMachineMovement", {
       username: currentUser, machineNumber: selectedMovementMachine, location: selectedLocation
@@ -1081,6 +1093,7 @@ async function submitMovementData() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+    hideBusyOverlay();
   }
 }
 
@@ -1191,13 +1204,10 @@ function resetMachineDetailsFormFields() {
   document.getElementById("md-serial").value = "";
   document.getElementById("md-hp").value = "";
   document.getElementById("md-hmr").value = "";
-  document.getElementById("md-yom-search").value = "";
+  document.getElementById("md-yom").value = "";
   document.getElementById("md-model").value = "";
   document.getElementById("md-engine-type").value = "";
   document.getElementById("md-hyd-pump-type").value = "";
-  const badge = document.getElementById("mdyom-badge");
-  badge.classList.remove("show"); badge.textContent = "";
-  selectedMdYom = "";
   document.getElementById("machine-details-post-save").style.display = "none";
   document.getElementById("btn-save-machine-details").style.display = "block";
   hideAlert(document.getElementById("alert-machine-details"));
@@ -1225,14 +1235,22 @@ async function saveMachineDetailsAndContinue() {
   if (!targetMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
 
   const serial = document.getElementById("md-serial").value.trim();
+  const yom = document.getElementById("md-yom").value.trim().toUpperCase();
   const hp = document.getElementById("md-hp").value;
   const hmr = document.getElementById("md-hmr").value;
   const model = document.getElementById("md-model").value;
   const engineType = document.getElementById("md-engine-type").value;
   const hydPumpType = document.getElementById("md-hyd-pump-type").value;
 
+  const VALID_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const yomMatch = yom.match(/^([A-Z]{3})\s(\d{4})$/);
+
   if (!serial) { showAlert(alertEl, "error", "Serial Number is required."); return; }
-  if (!selectedMdYom) { showAlert(alertEl, "error", "Please select YOM."); return; }
+  if (!yom) { showAlert(alertEl, "error", "Please fill YOM in MMM YYYY format (e.g. MAR 2020)."); return; }
+  if (!yomMatch || VALID_MONTHS.indexOf(yomMatch[1]) === -1) {
+    showAlert(alertEl, "error", "YOM must be in MMM YYYY format with a valid month (e.g. MAR 2020).");
+    return;
+  }
   if (hp === "" || isNaN(parseFloat(hp))) { showAlert(alertEl, "error", "Please enter a valid HP."); return; }
   if (hmr === "" || isNaN(parseFloat(hmr))) { showAlert(alertEl, "error", "Please enter a valid HMR."); return; }
   if (!model) { showAlert(alertEl, "error", "Please select a Model."); return; }
@@ -1240,9 +1258,10 @@ async function saveMachineDetailsAndContinue() {
   if (!hydPumpType) { showAlert(alertEl, "error", "Please select a Hyd. Pump Type."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   try {
     const data = await callApi("saveMachineDetails", {
-      machineNumber: targetMachine, serialNumber: serial, yom: selectedMdYom,
+      machineNumber: targetMachine, serialNumber: serial, yom: yom,
       hp: hp, hmr: hmr, model: model, engineType: engineType, hydPumpType: hydPumpType
     });
     if (data.success) {
@@ -1262,6 +1281,7 @@ async function saveMachineDetailsAndContinue() {
     showAlert(alertEl, "error", "Could not connect to server.");
   } finally {
     btn.disabled = false; btn.innerHTML = "Save & Continue";
+    hideBusyOverlay();
   }
 }
 
@@ -1378,8 +1398,10 @@ async function manualSavePdiPage() {
   const btn = document.getElementById("btn-pdi-save-top");
   const alertEl = document.getElementById("alert-pdi-page");
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  showBusyOverlay();
   const result = await syncPdiPage(pdiCurrentPageIndex);
   btn.disabled = false; btn.innerHTML = "&#128190; Save";
+  hideBusyOverlay();
   if (result.success) showToast("Saved.");
   else showAlert(alertEl, "error", result.error || "Could not save.");
 }
@@ -1414,10 +1436,12 @@ async function finishPdiSection() {
   hideAlert(alertEl);
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   const syncResult = await syncPdiPage(pdiCurrentPageIndex);
   if (!syncResult.success) {
     showAlert(alertEl, "error", syncResult.error || "Could not save this page.");
     btn.disabled = false; btn.innerHTML = "Finish Section";
+    hideBusyOverlay();
     return;
   }
 
@@ -1432,7 +1456,7 @@ async function finishPdiSection() {
         showToast("Section complete. Moving to next section...");
         const nextSection = pdiPendingSectionsQueue[pdiQueueIndex];
         const ok = await enterPdiSection(nextSection, alertEl);
-        if (!ok) { btn.disabled = false; btn.innerHTML = "Finish Section"; return; }
+        if (!ok) { btn.disabled = false; btn.innerHTML = "Finish Section"; hideBusyOverlay(); return; }
       } else {
         showAlert(alertEl, "success", "All sections completed for this machine!");
         document.getElementById("btn-pdi-prev").style.display = "none";
@@ -1447,6 +1471,7 @@ async function finishPdiSection() {
     showAlert(alertEl, "error", "Failed to complete section: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Finish Section";
+    hideBusyOverlay();
   }
 }
 
@@ -1461,17 +1486,15 @@ async function startAnotherPdiSection() {
 // ============================================================
 function resetTaskAdminScreen() {
   resetDropdownSelections();
-  selectedTaskAdminMachine = ""; selectedTaskAdminSection = ""; selectedTaskAdminPage = "";
-  taskAdminSectionsList = []; taskAdminPagesList = []; taskAdminSpreadsheetId = "";
+  selectedTaskAdminMachine = ""; selectedTaskAdminSection = "";
+  taskAdminSectionsList = []; taskAdminSpreadsheetId = "";
+  taskAdminPagesData = []; taskAdminSelections = {};
   document.getElementById("taskadminmachine-search").value = "";
   document.getElementById("taskadminsection-search").value = "";
-  document.getElementById("taskadminpage-search").value = "";
-  document.getElementById("taskadminpage-search").disabled = true;
-  document.getElementById("taskadminpage-search").placeholder = "Select a Section first";
-  ["taskadminmachine", "taskadminsection", "taskadminpage"].forEach(w => {
+  ["taskadminmachine", "taskadminsection"].forEach(w => {
     const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
-  document.getElementById("task-admin-options-card").style.display = "none";
+  document.getElementById("task-admin-widgets-container").innerHTML = "";
   document.getElementById("btn-task-admin-save").style.display = "none";
   document.getElementById("btn-task-admin-enter").style.display = "block";
   document.getElementById("task-admin-post-save").style.display = "none";
@@ -1479,6 +1502,25 @@ function resetTaskAdminScreen() {
   hideAlert(document.getElementById("alert-task-admin-save"));
   loadTaskAdminSections();
 }
+
+// Keep the Machine Number, only reset Section/widgets - for "Choose Another Section"
+function resetTaskAdminSectionOnly() {
+  selectedTaskAdminSection = "";
+  taskAdminPagesData = []; taskAdminSelections = {};
+  document.getElementById("taskadminsection-search").value = "";
+  const b = document.getElementById("taskadminsection-badge");
+  b.classList.remove("show"); b.textContent = "";
+  document.getElementById("task-admin-widgets-container").innerHTML = "";
+  document.getElementById("btn-task-admin-save").style.display = "none";
+  document.getElementById("btn-task-admin-enter").style.display = "block";
+  document.getElementById("task-admin-post-save").style.display = "none";
+  hideAlert(document.getElementById("alert-task-admin-select"));
+  hideAlert(document.getElementById("alert-task-admin-save"));
+  showScreen("screen-task-admin");
+}
+
+function taskAdminChooseAnotherSection() { resetTaskAdminSectionOnly(); }
+function taskAdminAnotherMachine() { resetTaskAdminScreen(); showScreen("screen-task-admin"); }
 
 async function loadTaskAdminSections() {
   try {
@@ -1490,25 +1532,8 @@ async function loadTaskAdminSections() {
   } catch (e) { /* section search will just show no results if this failed */ }
 }
 
-async function onTaskAdminSectionSelected() {
-  const pageInput = document.getElementById("taskadminpage-search");
-  pageInput.value = ""; pageInput.disabled = true; pageInput.placeholder = "Loading pages...";
-  selectedTaskAdminPage = "";
-  const badge = document.getElementById("taskadminpage-badge");
-  badge.classList.remove("show"); badge.textContent = "";
-  try {
-    const data = await callApi("getPagesForSection", { machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection });
-    if (data.success) {
-      taskAdminPagesList = data.pages || [];
-      pageInput.disabled = false;
-      pageInput.placeholder = "Type to search page...";
-    } else {
-      pageInput.placeholder = "Could not load pages";
-    }
-  } catch (e) {
-    pageInput.placeholder = "Could not load pages";
-  }
-}
+let taskAdminPagesData = [];       // [{ pageName, options: [...] }]
+let taskAdminSelections = {};      // { pageIndex: Set(optionString) }
 
 async function taskAdminEnter() {
   const alertEl = document.getElementById("alert-task-admin-select");
@@ -1517,18 +1542,17 @@ async function taskAdminEnter() {
 
   if (!selectedTaskAdminMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
   if (!selectedTaskAdminSection) { showAlert(alertEl, "error", "Please select a Section."); return; }
-  if (!selectedTaskAdminPage) { showAlert(alertEl, "error", "Please select a Page Name."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
   try {
-    const data = await callApi("getOptionsForPage", {
-      machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection, page: selectedTaskAdminPage
-    });
+    const data = await callApi("getSectionPages", { machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection });
     if (data.success) {
       taskAdminSpreadsheetId = data.pdiSpreadsheetId;
-      renderTaskAdminOptions(data.options || []);
+      taskAdminPagesData = data.pages || [];
+      taskAdminSelections = {};
+      renderTaskAdminWidgets();
     } else {
-      showAlert(alertEl, "error", data.error || "Could not load options.");
+      showAlert(alertEl, "error", data.error || "Could not load pages.");
     }
   } catch (e) {
     showAlert(alertEl, "error", "Could not connect to server.");
@@ -1537,29 +1561,33 @@ async function taskAdminEnter() {
   }
 }
 
-let taskAdminSelectedOptions = new Set();
+function renderTaskAdminWidgets() {
+  const container = document.getElementById("task-admin-widgets-container");
+  container.innerHTML = "";
 
-function renderTaskAdminOptions(options) {
-  taskAdminSelectedOptions = new Set();
-  document.getElementById("task-admin-page-title").textContent = selectedTaskAdminSection + " \u2014 " + selectedTaskAdminPage;
-  const listEl = document.getElementById("task-admin-options-list");
-  listEl.innerHTML = "";
-  if (options.length === 0) {
-    listEl.innerHTML = '<p style="color:var(--muted);font-size:14px">No options found for this Page.</p>';
-  } else {
-    options.forEach((opt, idx) => {
-      const id = "task-admin-opt-" + idx;
+  taskAdminPagesData.forEach((page, pageIdx) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.marginTop = "12px";
+    let html = '<h4 style="margin-bottom:10px">' + escHtml(page.pageName) + '</h4><div id="task-admin-page-options-' + pageIdx + '"></div>';
+    card.innerHTML = html;
+    container.appendChild(card);
+
+    const listEl = card.querySelector("#task-admin-page-options-" + pageIdx);
+    page.options.forEach((opt, optIdx) => {
+      const id = "task-admin-opt-" + pageIdx + "-" + optIdx;
       const row = document.createElement("div");
       row.className = "option-item";
       row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(opt) + '</label>';
       row.querySelector("input").addEventListener("change", (e) => {
-        if (e.target.checked) taskAdminSelectedOptions.add(opt);
-        else taskAdminSelectedOptions.delete(opt);
+        if (!taskAdminSelections[pageIdx]) taskAdminSelections[pageIdx] = new Set();
+        if (e.target.checked) taskAdminSelections[pageIdx].add(opt);
+        else taskAdminSelections[pageIdx].delete(opt);
       });
       listEl.appendChild(row);
     });
-  }
-  document.getElementById("task-admin-options-card").style.display = "block";
+  });
+
   document.getElementById("btn-task-admin-save").style.display = "block";
   document.getElementById("btn-task-admin-enter").style.display = "none";
 }
@@ -1569,15 +1597,19 @@ async function taskAdminSave() {
   const btn = document.getElementById("btn-task-admin-save");
   hideAlert(alertEl);
 
-  const options = Array.from(taskAdminSelectedOptions);
-  if (options.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
+  const pagesData = taskAdminPagesData.map((page, idx) => ({
+    page: page.pageName,
+    options: Array.from(taskAdminSelections[idx] || [])
+  })).filter(p => p.options.length > 0);
+
+  if (pagesData.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
   try {
-    const data = await callApi("saveTaskAdminPage", {
+    const data = await callApi("saveTaskAdminSection", {
       pdiSpreadsheetId: taskAdminSpreadsheetId, username: currentUser,
-      machineNumber: selectedTaskAdminMachine, section: selectedTaskAdminSection,
-      page: selectedTaskAdminPage, options: options
+      machineNumber: selectedTaskAdminMachine, section: selectedTaskAdminSection, pagesData: pagesData
     });
     if (data.success) {
       showAlert(alertEl, "success", data.savedCount + " item(s) saved and auto-approved.");
@@ -1591,6 +1623,7 @@ async function taskAdminSave() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Save";
+    hideBusyOverlay();
   }
 }
 
@@ -1792,6 +1825,7 @@ async function uploadOfflinePdi() {
   });
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  showBusyOverlay();
   try {
     const data = await callApi("uploadOfflinePdi", {
       pdiSpreadsheetId: offlineSession.pdiSpreadsheetId, username: currentUser,
@@ -1812,6 +1846,7 @@ async function uploadOfflinePdi() {
     showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Upload";
+    hideBusyOverlay();
   }
 }
 
@@ -1967,6 +2002,7 @@ async function saveTaskAssignment(rowIndex) {
     return;
   }
 
+  showBusyOverlay();
   try {
     const data = await callApi("assignTask", { pdiSpreadsheetId: taskSpreadsheetId, rowIndex: rowIndex, employees: employees });
     if (data.success) {
@@ -1981,12 +2017,15 @@ async function saveTaskAssignment(rowIndex) {
     }
   } catch (e) {
     showAlert(alertEl, "error", "Failed to assign task: " + e.message);
+  } finally {
+    hideBusyOverlay();
   }
 }
 
 async function markTaskCompleted(rowIndex) {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
+  showBusyOverlay();
   try {
     const data = await callApi("completeTask", { pdiSpreadsheetId: taskSpreadsheetId, rowIndex: rowIndex });
     if (data.success) {
@@ -1999,6 +2038,8 @@ async function markTaskCompleted(rowIndex) {
     }
   } catch (e) {
     showAlert(alertEl, "error", "Failed to mark task completed: " + e.message);
+  } finally {
+    hideBusyOverlay();
   }
 }
 
