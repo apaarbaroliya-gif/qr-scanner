@@ -466,7 +466,7 @@
     </div>
   </div>
 
-  <!-- SCREEN: TASK MANAGER - LIST (shared by both modules) -->
+  <!-- SCREEN: TASK WIDGETS (shared by Assign Task / Mark Task as Completed / Approve Task) -->
   <div class="screen" id="screen-task-list">
     <div class="topbar">
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
@@ -476,9 +476,21 @@
 
     <div class="card task-filter-panel" id="task-filter-panel">
       <label>Machine Number</label>
-      <select id="task-filter-machine"><option value="">All Machines</option></select>
+      <div class="search-wrap">
+        <input type="text" id="taskfiltermachine-search" autocomplete="off" placeholder="Type to search (blank = all)..."
+          oninput="filterDropdown('taskfiltermachine')" onfocus="filterDropdown('taskfiltermachine')" onblur="onDropdownBlur('taskfiltermachine')">
+        <div class="search-dropdown" id="taskfiltermachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="taskfiltermachine-badge"></div>
+
       <label>Section</label>
-      <select id="task-filter-section"><option value="">All Sections</option></select>
+      <div class="search-wrap">
+        <input type="text" id="taskfiltersection-search" autocomplete="off" placeholder="Type to search (blank = all)..."
+          oninput="filterDropdown('taskfiltersection')" onfocus="filterDropdown('taskfiltersection')" onblur="onDropdownBlur('taskfiltersection')">
+        <div class="search-dropdown" id="taskfiltersection-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="taskfiltersection-badge"></div>
+
       <button class="btn btn-primary" style="margin-top:14px" onclick="applyTaskFilters()">Apply Filter</button>
       <button class="btn btn-outline" onclick="clearTaskFilters()">Clear Filter</button>
     </div>
@@ -489,11 +501,64 @@
     <div class="alert" id="alert-task-list"></div>
   </div>
 
+  <!-- SCREEN: PDI VIEWER -->
+  <div class="screen" id="screen-pdi-viewer">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">PDI Viewer</span>
+    </div>
+    <div class="card">
+      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="viewermachine-search" autocomplete="off" inputmode="numeric"
+          placeholder="Type to search..." oninput="filterDropdown('viewermachine')"
+          onfocus="filterDropdown('viewermachine')" onblur="onDropdownBlur('viewermachine')">
+        <div class="search-dropdown" id="viewermachine-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="viewermachine-badge"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-pdi-viewer-load" onclick="loadPdiViewerData()">View</button>
+    <div class="alert" id="alert-pdi-viewer"></div>
+
+    <div id="pdi-viewer-results" style="display:none">
+      <div class="task-count-text" id="pdi-viewer-count"></div>
+      <div class="card" id="pdi-viewer-list-card"></div>
+      <button class="btn btn-success" onclick="downloadPdiViewerPdf()">&#128190; Save to Device (PDF)</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: PURCHASE ORDER -->
+  <div class="screen" id="screen-purchase-order">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Purchase Order</span>
+    </div>
+    <div class="card">
+      <label>Item</label>
+      <div class="search-wrap">
+        <input type="text" id="poitem-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('poitem')" onfocus="filterDropdown('poitem')" onblur="onDropdownBlur('poitem')">
+        <div class="search-dropdown" id="poitem-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="poitem-badge"></div>
+
+      <label>Quantity</label>
+      <input type="number" id="po-quantity" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
+    </div>
+    <button class="btn btn-success" id="btn-po-submit" onclick="submitPurchaseOrder()">Submit</button>
+    <div class="alert" id="alert-po"></div>
+    <div id="po-post-submit" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetPurchaseOrderScreen()">Add Another Item</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <div id="busy-overlay"><div class="busy-spinner"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ============================================================
 // CONFIG - paste your deployed Apps Script Web App URL here
@@ -522,6 +587,18 @@ let taskAdminSectionsList = [];
 let taskAdminPagesList = [];
 let taskAdminSpreadsheetId = "";
 
+// Task widgets (Assign / Complete / Approve) state
+let taskWidgetsMachineList = [];   // unique machine numbers among currently-loaded widgets, for the filter search
+let taskWidgetsSectionList = [];   // unique sections among currently-loaded widgets, for the filter search
+let selectedTaskFilterMachine = "", selectedTaskFilterSection = "";
+
+// PDI Viewer state
+let selectedViewerMachine = "";
+let pdiViewerItems = [];
+
+// Purchase Order state
+let selectedPoItem = "";
+
 // Month/Year list for the Machine Details YOM dropdown: Jan 2012 through the current month, newest first
 const YOM_OPTIONS = (function () {
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -546,12 +623,12 @@ let pdiQueueIndex = 0;
 // Task Manager (Assign Task / Mark Task as Completed) state
 let taskMode = "";              // "assign" or "complete"
 let taskMachineType = "", taskSpreadsheetId = "";
-let allTaskItems = [];          // full fetched list for the chosen Machine Type
-let filteredTaskItems = [];     // after Machine Number / Section filters applied
+let allTaskWidgets = [];        // full fetched widget list for the chosen Machine Type
+let filteredTaskWidgets = [];   // after Machine Number / Section filters applied
 let taskDisplayCount = 20;
-let taskFilterMachineVal = "", taskFilterSectionVal = "";
-let expandedAssignRowIndex = null; // which task's assign panel is currently open
-let taskAssigneeSelections = {};   // { rowIndex: { 1: name, 2: name, 3: name } } for the searchable assignee pickers
+let expandedWidgetKey = null;      // which widget's assign panel is currently open (assign mode)
+let taskAssigneeSelections = {};   // unused now (kept for compat with generic dropdown code path), safe no-op
+let taskCompleteSelections = {};   // { widgetKey: Set(rowIndex) } for Mark Task as Completed checkboxes
 let html5QrCode = null;
 let scannerRunning = false;
 let torchOn = false;
@@ -563,9 +640,12 @@ const MODULE_META = {
   "Machine Movement": { icon: "&#128664;", desc: "Log machine location changes" },
   "Machine PDI": { icon: "&#128203;", desc: "Pre-delivery inspection" },
   "Task Admin": { icon: "&#128736;", desc: "Add pre-approved tasks directly" },
+  "Approve Task": { icon: "&#9989;", desc: "Approve pending PDI tasks" },
   "Add Machine Details": { icon: "&#128202;", desc: "Register machine details without starting a PDI" },
   "Assign Task": { icon: "&#128204;", desc: "Assign approved tasks to employees" },
-  "Mark Task as Completed": { icon: "&#9989;", desc: "Close out assigned tasks" }
+  "Mark Task as Completed": { icon: "&#127919;", desc: "Close out assigned tasks" },
+  "PDI Viewer": { icon: "&#128196;", desc: "View and export a machine's full PDI" },
+  "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" }
 };
 
 // ============================================================
@@ -775,12 +855,20 @@ async function openModule(mod) {
     mdEntryMode = "addDetails";
     resetAddMachineDetailsForm();
     showScreen("screen-machine-details");
-  } else if (mod === "Assign Task" || mod === "Mark Task as Completed") {
-    taskMode = (mod === "Assign Task") ? "assign" : "complete";
+  } else if (mod === "Assign Task" || mod === "Mark Task as Completed" || mod === "Approve Task") {
+    taskMode = (mod === "Assign Task") ? "assign" : (mod === "Mark Task as Completed") ? "complete" : "approve";
     taskMachineType = DEFAULT_MACHINE_TYPE;
     await loadDropdownData();
     showScreen("screen-task-list");
-    await loadTaskList();
+    await loadTaskWidgets();
+  } else if (mod === "PDI Viewer") {
+    await loadDropdownData();
+    resetPdiViewerScreen();
+    showScreen("screen-pdi-viewer");
+  } else if (mod === "Purchase Order") {
+    await loadStockItems();
+    resetPurchaseOrderScreen();
+    showScreen("screen-purchase-order");
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -799,6 +887,10 @@ function filterDropdown(which) {
   const isYom = which === "mdyom";
   const isTaskAdminSection = which === "taskadminsection";
   const isTaskAdminPage = which === "taskadminpage";
+  const isTaskFilterMachine = which === "taskfiltermachine";
+  const isTaskFilterSection = which === "taskfiltersection";
+  const isPoItem = which === "poitem";
+  const isPlainSubstring = isLocation || isEmployee || isYom || isTaskAdminSection || isTaskAdminPage || isTaskFilterSection || isPoItem;
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -811,11 +903,13 @@ function filterDropdown(which) {
 
   const list = isEmployee ? (dropdownData.employees || []) : isYom ? YOM_OPTIONS
     : isTaskAdminSection ? taskAdminSectionsList : isTaskAdminPage ? taskAdminPagesList
+    : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
+    : isPoItem ? (dropdownData.stockItems || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
   const noResultsLabel = isEmployee ? "No employees found" : isYom ? "No matches found"
-    : (isTaskAdminSection || isTaskAdminPage) ? "No matches found" : "No machines found";
+    : (isTaskAdminSection || isTaskAdminPage || isTaskFilterMachine || isTaskFilterSection || isPoItem) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
-    if (isLocation || isEmployee || isYom || isTaskAdminSection || isTaskAdminPage) return m.toLowerCase().includes(query.toLowerCase());
+    if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
@@ -858,6 +952,10 @@ function selectDropdownValue(which, m) {
   else if (which === "taskadminsection") selectedTaskAdminSection = m;
   else if (which === "taskadminpage") selectedTaskAdminPage = m;
   else if (which === "addmdmachine") mdTargetMachine = m;
+  else if (which === "taskfiltermachine") selectedTaskFilterMachine = m;
+  else if (which === "taskfiltersection") selectedTaskFilterSection = m;
+  else if (which === "viewermachine") selectedViewerMachine = m;
+  else if (which === "poitem") selectedPoItem = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -869,7 +967,8 @@ function selectDropdownValue(which, m) {
 
 function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine"].forEach(which => {
+  selectedTaskAdminMachine = ""; selectedTaskAdminSection = ""; selectedViewerMachine = ""; selectedPoItem = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "taskadminsection", "viewermachine", "poitem"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -1855,30 +1954,37 @@ async function uploadOfflinePdi() {
 // ============================================================
 function resetTaskManagerState() {
   taskSpreadsheetId = "";
-  allTaskItems = []; filteredTaskItems = [];
+  allTaskWidgets = []; filteredTaskWidgets = [];
   taskDisplayCount = 20;
-  taskFilterMachineVal = ""; taskFilterSectionVal = "";
-  expandedAssignRowIndex = null;
+  selectedTaskFilterMachine = ""; selectedTaskFilterSection = "";
+  expandedWidgetKey = null;
   taskAssigneeSelections = {};
+  taskCompleteSelections = {};
+  const mSearch = document.getElementById("taskfiltermachine-search"); if (mSearch) mSearch.value = "";
+  const sSearch = document.getElementById("taskfiltersection-search"); if (sSearch) sSearch.value = "";
+  ["taskfiltermachine", "taskfiltersection"].forEach(w => {
+    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
+  });
 }
 
-async function loadTaskList() {
+async function loadTaskWidgets() {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
   resetTaskManagerState();
 
-  const title = (taskMode === "assign") ? "Assign Task" : "Mark Task as Completed";
-  document.getElementById("task-list-title").textContent = title;
+  const titles = { assign: "Assign Task", complete: "Mark Task as Completed", approve: "Approve Task" };
+  document.getElementById("task-list-title").textContent = titles[taskMode];
   document.getElementById("task-filter-panel").classList.remove("open");
   document.getElementById("task-count-text").textContent = "Loading tasks...";
   document.getElementById("task-list-container").innerHTML = "";
   document.getElementById("btn-load-more-tasks").style.display = "none";
 
+  const action = taskMode === "assign" ? "getAssignTaskWidgets" : taskMode === "complete" ? "getCompleteTaskWidgets" : "getApproveTaskWidgets";
   try {
-    const data = await callApi("getTaskManagerItems", { machineType: taskMachineType, listType: taskMode });
+    const data = await callApi(action, { machineType: taskMachineType });
     if (data.success) {
       taskSpreadsheetId = data.pdiSpreadsheetId;
-      allTaskItems = data.items || [];
+      allTaskWidgets = data.widgets || [];
       buildTaskFilterOptions();
       applyTaskFilters();
     } else {
@@ -1892,16 +1998,8 @@ async function loadTaskList() {
 }
 
 function buildTaskFilterOptions() {
-  const machineSel = document.getElementById("task-filter-machine");
-  const sectionSel = document.getElementById("task-filter-section");
-  const machines = [...new Set(allTaskItems.map(t => t.machineNumber))].sort();
-  const sections = [...new Set(allTaskItems.map(t => t.section))].sort();
-
-  machineSel.innerHTML = '<option value="">All Machines</option>';
-  machines.forEach(m => { const o = document.createElement("option"); o.value = m; o.textContent = m; machineSel.appendChild(o); });
-
-  sectionSel.innerHTML = '<option value="">All Sections</option>';
-  sections.forEach(s => { const o = document.createElement("option"); o.value = s; o.textContent = s; sectionSel.appendChild(o); });
+  taskWidgetsMachineList = [...new Set(allTaskWidgets.map(w => w.machineNumber))].sort();
+  taskWidgetsSectionList = [...new Set(allTaskWidgets.map(w => w.section))].sort();
 }
 
 function toggleTaskFilterPanel() {
@@ -1909,93 +2007,124 @@ function toggleTaskFilterPanel() {
 }
 
 function applyTaskFilters() {
-  taskFilterMachineVal = document.getElementById("task-filter-machine").value;
-  taskFilterSectionVal = document.getElementById("task-filter-section").value;
-  filteredTaskItems = allTaskItems.filter(t =>
-    (!taskFilterMachineVal || t.machineNumber === taskFilterMachineVal) &&
-    (!taskFilterSectionVal || t.section === taskFilterSectionVal)
+  filteredTaskWidgets = allTaskWidgets.filter(w =>
+    (!selectedTaskFilterMachine || w.machineNumber === selectedTaskFilterMachine) &&
+    (!selectedTaskFilterSection || w.section === selectedTaskFilterSection)
   );
   taskDisplayCount = 20;
-  expandedAssignRowIndex = null;
-  renderTaskList();
+  expandedWidgetKey = null;
+  renderTaskWidgets();
 }
 
 function clearTaskFilters() {
-  document.getElementById("task-filter-machine").value = "";
-  document.getElementById("task-filter-section").value = "";
+  selectedTaskFilterMachine = ""; selectedTaskFilterSection = "";
+  document.getElementById("taskfiltermachine-search").value = "";
+  document.getElementById("taskfiltersection-search").value = "";
+  ["taskfiltermachine", "taskfiltersection"].forEach(w => {
+    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
+  });
   applyTaskFilters();
 }
 
 function loadMoreTasks() {
   taskDisplayCount += 20;
-  renderTaskList();
+  renderTaskWidgets();
 }
 
-function renderTaskList() {
+function widgetKey(w) { return w.machineNumber + "||" + w.section + "||" + w.page; }
+
+function renderTaskWidgets() {
   hideAlert(document.getElementById("alert-task-list"));
   const container = document.getElementById("task-list-container");
   container.innerHTML = "";
 
-  const visible = filteredTaskItems.slice(0, taskDisplayCount);
-  const total = filteredTaskItems.length;
+  const visible = filteredTaskWidgets.slice(0, taskDisplayCount);
+  const total = filteredTaskWidgets.length;
 
   document.getElementById("task-count-text").textContent =
     total === 0 ? "No tasks found." : "Showing " + visible.length + " of " + total + " task(s)";
   document.getElementById("btn-load-more-tasks").style.display = (taskDisplayCount < total) ? "block" : "none";
 
   if (total === 0) {
-    container.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:14px">' +
-      (taskMode === "assign" ? "No approved tasks waiting for assignment." : "No assigned tasks waiting to be completed.") + '</p>';
+    const emptyMsg = taskMode === "assign" ? "No approved tasks waiting for assignment."
+      : taskMode === "complete" ? "No assigned tasks waiting to be completed."
+      : "No tasks waiting for approval.";
+    container.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:14px">' + emptyMsg + '</p>';
     return;
   }
 
-  visible.forEach(item => {
+  visible.forEach(w => {
+    const key = widgetKey(w);
     const card = document.createElement("div");
     card.className = "task-card";
-    let html = '<div class="task-title">' + escHtml(item.page) + ' &mdash; ' + escHtml(item.option) + '</div>' +
-      '<div class="task-sub">Machine: ' + escHtml(item.machineNumber) + '  |  Section: ' + escHtml(item.section) + '</div>' +
-      '<div class="task-meta">Submitted by ' + escHtml(item.username) + ' on ' + escHtml(item.date) + '</div>';
+    let html = '<div class="task-title">' + escHtml(w.page) + '</div>' +
+      '<div class="task-sub">Machine: ' + escHtml(w.machineNumber) + '  |  Section: ' + escHtml(w.section) + '</div>';
 
     if (taskMode === "assign") {
-      html += '<button class="btn btn-outline" style="margin-top:10px" onclick="toggleAssignPanel(' + item.rowIndex + ')">Assign</button>';
-      html += '<div id="assign-panel-' + item.rowIndex + '" style="display:' + (expandedAssignRowIndex === item.rowIndex ? "block" : "none") + '">';
+      const options = w.options || [];
+      html += '<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--text)">' +
+        options.map(o => '<li>' + escHtml(o) + '</li>').join("") + '</ul>';
+      html += '<button class="btn btn-outline" style="margin-top:10px" onclick="toggleWidgetPanel(\'' + key.replace(/'/g, "\\'") + '\')">Assign</button>';
+      html += '<div id="widget-panel-' + cssKey(key) + '" style="display:' + (expandedWidgetKey === key ? "block" : "none") + '">';
       [1, 2, 3].forEach(slot => {
-        const which = "assignee-" + item.rowIndex + "-" + slot;
-        const preset = (taskAssigneeSelections[item.rowIndex] && taskAssigneeSelections[item.rowIndex][slot]) || "";
+        const which = "assignee-" + cssKey(key) + "-" + slot;
         html += '<label style="margin-top:10px">Person ' + slot + (slot > 1 ? ' <span style="color:var(--muted);font-weight:400">(optional)</span>' : '') + '</label>' +
-          '<div class="search-wrap">' +
-            '<input type="text" id="' + which + '-search" autocomplete="off" value="' + escHtml(preset) + '"' +
-              ' placeholder="Type to search employee..." oninput="filterDropdown(\'' + which + '\')"' +
-              ' onfocus="filterDropdown(\'' + which + '\')" onblur="onDropdownBlur(\'' + which + '\')">' +
-            '<div class="search-dropdown" id="' + which + '-dropdown"></div>' +
-          '</div>' +
-          '<div class="selected-badge' + (preset ? ' show' : '') + '" id="' + which + '-badge">' + (preset ? "Selected: " + escHtml(preset) : "") + '</div>';
+          '<div class="search-wrap"><input type="text" id="' + which + '-search" autocomplete="off" placeholder="Type to search employee..."' +
+          ' oninput="filterDropdown(\'' + which + '\')" onfocus="filterDropdown(\'' + which + '\')" onblur="onDropdownBlur(\'' + which + '\')">' +
+          '<div class="search-dropdown" id="' + which + '-dropdown"></div></div>' +
+          '<div class="selected-badge" id="' + which + '-badge"></div>';
       });
-      html += '<button class="btn btn-success" style="margin-top:8px" onclick="saveTaskAssignment(' + item.rowIndex + ')">Save Assignment</button>' +
-        '</div>';
-    } else {
-      const assignees = [item.doneBy1, item.doneBy2, item.doneBy3].filter(Boolean).join(", ");
-      html += '<div class="task-meta" style="margin-top:4px">Assigned to: ' + escHtml(assignees) + '</div>';
-      html += '<button class="btn btn-success" style="margin-top:10px" onclick="markTaskCompleted(' + item.rowIndex + ')">Mark Completed</button>';
+      html += '<button class="btn btn-success" style="margin-top:8px" onclick="saveWidgetAssignment(\'' + key.replace(/'/g, "\\'") + '\')">Save Assignment</button></div>';
+    } else if (taskMode === "complete") {
+      html += '<div id="widget-options-' + cssKey(key) + '"></div>';
+      html += '<button class="btn btn-success" style="margin-top:10px" onclick="saveWidgetCompletion(\'' + key.replace(/'/g, "\\'") + '\')">Mark Selected as Completed</button>';
+    } else { // approve
+      const options = w.options || [];
+      html += '<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--text)">' +
+        options.map(o => '<li>' + escHtml(o) + '</li>').join("") + '</ul>';
+      html += '<button class="btn btn-success" style="margin-top:10px" onclick="approveWidget(\'' + key.replace(/'/g, "\\'") + '\')">Approve</button>';
     }
     card.innerHTML = html;
     container.appendChild(card);
+
+    if (taskMode === "complete") {
+      const listEl = card.querySelector("#widget-options-" + cssKey(key));
+      (w.items || []).forEach((item, idx) => {
+        const id = "complete-opt-" + cssKey(key) + "-" + idx;
+        const row = document.createElement("div");
+        row.className = "option-item";
+        const assignees = [item.doneBy1, item.doneBy2, item.doneBy3].filter(Boolean).join(", ");
+        row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(item.option) +
+          '<br><span style="color:var(--muted);font-size:11px">Assigned to: ' + escHtml(assignees) + '</span></label>';
+        row.querySelector("input").addEventListener("change", (e) => {
+          if (!taskCompleteSelections[key]) taskCompleteSelections[key] = new Set();
+          if (e.target.checked) taskCompleteSelections[key].add(item.rowIndex);
+          else taskCompleteSelections[key].delete(item.rowIndex);
+        });
+        listEl.appendChild(row);
+      });
+    }
   });
 }
 
-function toggleAssignPanel(rowIndex) {
-  expandedAssignRowIndex = (expandedAssignRowIndex === rowIndex) ? null : rowIndex;
-  if (expandedAssignRowIndex !== null && !taskAssigneeSelections[expandedAssignRowIndex]) {
-    taskAssigneeSelections[expandedAssignRowIndex] = {};
-  }
-  renderTaskList();
+// Widget keys can contain spaces/punctuation - make a safe id fragment for DOM element IDs
+function cssKey(key) { return key.replace(/[^a-zA-Z0-9]/g, "_"); }
+
+function toggleWidgetPanel(key) {
+  expandedWidgetKey = (expandedWidgetKey === key) ? null : key;
+  renderTaskWidgets();
 }
 
-async function saveTaskAssignment(rowIndex) {
+async function saveWidgetAssignment(key) {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
-  const sel = taskAssigneeSelections[rowIndex] || {};
-  const employees = [sel[1], sel[2], sel[3]].filter(Boolean);
+  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
+  if (!widget) return;
+  const ck = cssKey(key);
+  const e1 = document.getElementById("assignee-" + ck + "-1-search").value.trim();
+  const e2 = document.getElementById("assignee-" + ck + "-2-search").value.trim();
+  const e3 = document.getElementById("assignee-" + ck + "-3-search").value.trim();
+  const employees = [e1, e2, e3].filter(Boolean);
 
   if (employees.length === 0) {
     showAlert(alertEl, "error", "Please select at least one person to assign.");
@@ -2004,14 +2133,13 @@ async function saveTaskAssignment(rowIndex) {
 
   showBusyOverlay();
   try {
-    const data = await callApi("assignTask", { pdiSpreadsheetId: taskSpreadsheetId, rowIndex: rowIndex, employees: employees });
+    const data = await callApi("assignTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes, employees: employees });
     if (data.success) {
       showToast("Task assigned.");
-      allTaskItems = allTaskItems.filter(t => t.rowIndex !== rowIndex);
-      filteredTaskItems = filteredTaskItems.filter(t => t.rowIndex !== rowIndex);
-      delete taskAssigneeSelections[rowIndex];
-      expandedAssignRowIndex = null;
-      renderTaskList();
+      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
+      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      expandedWidgetKey = null;
+      renderTaskWidgets();
     } else {
       showAlert(alertEl, "error", data.error || "Failed to assign task.");
     }
@@ -2022,23 +2150,190 @@ async function saveTaskAssignment(rowIndex) {
   }
 }
 
-async function markTaskCompleted(rowIndex) {
+async function saveWidgetCompletion(key) {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
+  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
+  if (!widget) return;
+  const selectedSet = taskCompleteSelections[key] || new Set();
+  if (selectedSet.size === 0) {
+    showAlert(alertEl, "error", "Please select at least one option to mark completed.");
+    return;
+  }
+
   showBusyOverlay();
   try {
-    const data = await callApi("completeTask", { pdiSpreadsheetId: taskSpreadsheetId, rowIndex: rowIndex });
+    const data = await callApi("completeTaskWidget", {
+      pdiSpreadsheetId: taskSpreadsheetId,
+      selectedRowIndexes: Array.from(selectedSet),
+      allRowIndexesInWidget: widget.items.map(i => i.rowIndex)
+    });
     if (data.success) {
-      showToast("Task marked completed.");
-      allTaskItems = allTaskItems.filter(t => t.rowIndex !== rowIndex);
-      filteredTaskItems = filteredTaskItems.filter(t => t.rowIndex !== rowIndex);
-      renderTaskList();
+      let msg = data.completedCount + " option(s) marked completed.";
+      if (data.reopenedCount > 0) msg += " " + data.reopenedCount + " unselected option(s) sent back to Assign Task.";
+      showToast(msg);
+      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
+      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      delete taskCompleteSelections[key];
+      renderTaskWidgets();
     } else {
-      showAlert(alertEl, "error", data.error || "Failed to mark task completed.");
+      showAlert(alertEl, "error", data.error || "Failed to mark completed.");
     }
   } catch (e) {
-    showAlert(alertEl, "error", "Failed to mark task completed: " + e.message);
+    showAlert(alertEl, "error", "Failed to mark completed: " + e.message);
   } finally {
+    hideBusyOverlay();
+  }
+}
+
+async function approveWidget(key) {
+  const alertEl = document.getElementById("alert-task-list");
+  hideAlert(alertEl);
+  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
+  if (!widget) return;
+
+  showBusyOverlay();
+  try {
+    const data = await callApi("approveTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes });
+    if (data.success) {
+      showToast(data.approvedCount + " option(s) approved.");
+      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
+      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      renderTaskWidgets();
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to approve.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to approve: " + e.message);
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// PDI VIEWER
+// ============================================================
+function resetPdiViewerScreen() {
+  resetDropdownSelections();
+  selectedViewerMachine = ""; pdiViewerItems = [];
+  document.getElementById("viewermachine-search").value = "";
+  const b = document.getElementById("viewermachine-badge");
+  b.classList.remove("show"); b.textContent = "";
+  document.getElementById("pdi-viewer-results").style.display = "none";
+  hideAlert(document.getElementById("alert-pdi-viewer"));
+}
+
+async function loadPdiViewerData() {
+  const alertEl = document.getElementById("alert-pdi-viewer");
+  const btn = document.getElementById("btn-pdi-viewer-load");
+  hideAlert(alertEl);
+  if (!selectedViewerMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
+  try {
+    const data = await callApi("getPdiViewerData", { machineType: DEFAULT_MACHINE_TYPE, machineNumber: selectedViewerMachine });
+    if (data.success) {
+      pdiViewerItems = data.items || [];
+      renderPdiViewerList();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not load PDI data.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "View";
+  }
+}
+
+function renderPdiViewerList() {
+  document.getElementById("pdi-viewer-count").textContent = pdiViewerItems.length + " selected option(s) for Machine " + selectedViewerMachine;
+  const card = document.getElementById("pdi-viewer-list-card");
+  if (pdiViewerItems.length === 0) {
+    card.innerHTML = '<p style="color:var(--muted);font-size:14px">No selected options found for this machine.</p>';
+  } else {
+    card.innerHTML = pdiViewerItems.map(i =>
+      '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+      escHtml(i.section) + ' &mdash; ' + escHtml(i.page) + ' &mdash; ' + escHtml(i.option) + '</div>'
+    ).join("");
+  }
+  document.getElementById("pdi-viewer-results").style.display = "block";
+}
+
+function downloadPdiViewerPdf() {
+  if (typeof window.jspdf === "undefined") { showToast("PDF library failed to load. Check your internet connection."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" }); // A4 size
+  const marginX = 40;
+  let y = 50;
+
+  doc.setFontSize(16);
+  doc.text("PDI Viewer - Machine " + selectedViewerMachine, marginX, y);
+  y += 24;
+  doc.setFontSize(10);
+  doc.text(pdiViewerItems.length + " selected option(s)", marginX, y);
+  y += 20;
+
+  doc.setFontSize(11);
+  const pageHeight = doc.internal.pageSize.getHeight();
+  pdiViewerItems.forEach((i, idx) => {
+    const line = (idx + 1) + ". " + i.section + " \u2014 " + i.page + " \u2014 " + i.option;
+    const wrapped = doc.splitTextToSize(line, 515);
+    if (y + wrapped.length * 14 > pageHeight - 40) { doc.addPage(); y = 50; }
+    doc.text(wrapped, marginX, y);
+    y += wrapped.length * 14 + 4;
+  });
+
+  doc.save("PDI_" + selectedViewerMachine + ".pdf");
+  showToast("PDF saved to your device.");
+}
+
+// ============================================================
+// PURCHASE ORDER
+// ============================================================
+async function loadStockItems() {
+  try {
+    const data = await callApi("getStockItems", {});
+    if (data.success) dropdownData.stockItems = data.items || [];
+  } catch (e) { /* search will just show no results if this failed */ }
+}
+
+function resetPurchaseOrderScreen() {
+  resetDropdownSelections();
+  selectedPoItem = "";
+  document.getElementById("poitem-search").value = "";
+  const b = document.getElementById("poitem-badge");
+  b.classList.remove("show"); b.textContent = "";
+  document.getElementById("po-quantity").value = "";
+  document.getElementById("btn-po-submit").style.display = "block";
+  document.getElementById("po-post-submit").style.display = "none";
+  hideAlert(document.getElementById("alert-po"));
+}
+
+async function submitPurchaseOrder() {
+  const alertEl = document.getElementById("alert-po");
+  const btn = document.getElementById("btn-po-submit");
+  hideAlert(alertEl);
+
+  const qty = parseInt(document.getElementById("po-quantity").value, 10);
+  if (!selectedPoItem) { showAlert(alertEl, "error", "Please select an item."); return; }
+  if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be a positive whole number."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("submitPurchaseOrder", { itemName: selectedPoItem, quantity: qty });
+    if (data.success) {
+      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      btn.style.display = "none";
+      document.getElementById("po-post-submit").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Submit";
     hideBusyOverlay();
   }
 }
