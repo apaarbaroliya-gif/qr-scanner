@@ -103,6 +103,8 @@
     height: 14px; overflow:hidden; }
   .progress-bar-fill { background: var(--accent); height: 100%; width: 0%; transition: width .15s linear; }
   .progress-stats { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .floating-save-btn { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 448px;
+    margin: 0 auto; z-index: 90; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -339,9 +341,8 @@
     </div>
     <div class="task-count-text" style="margin-bottom:10px">Required once for this machine before it can appear in Machine PDI.</div>
     <div class="card">
-      <label>Machine Number</label>
-      <input type="text" id="md-machine-display" disabled>
-      <div class="search-wrap" id="md-machine-search-wrap" style="display:none">
+      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
+      <div class="search-wrap" id="md-machine-search-wrap">
         <input type="text" id="addmdmachine-search" autocomplete="off" inputmode="numeric"
           placeholder="Type to search..." oninput="filterDropdown('addmdmachine')"
           onfocus="filterDropdown('addmdmachine')" onblur="onDropdownBlur('addmdmachine')">
@@ -430,14 +431,14 @@
     <button class="btn btn-primary" id="btn-task-admin-open" onclick="startTaskAdminOffline()">Open Task Admin</button>
     <div class="alert" id="alert-task-admin-select"></div>
 
-    <div id="task-admin-offline-view" style="display:none">
+    <div id="task-admin-offline-view" style="display:none;padding-bottom:70px">
       <div class="task-count-text" id="task-admin-machine-label"></div>
       <div class="card">
         <label>Search <span style="color:var(--muted)">(Section, Page, or Option)</span></label>
         <input type="text" id="task-admin-search-bar" placeholder="Type to filter..." oninput="filterTaskAdminWidgets()">
       </div>
       <div id="task-admin-widgets-container"></div>
-      <button class="btn btn-success" id="btn-task-admin-save" onclick="uploadTaskAdminData()">Save</button>
+      <button class="btn btn-success floating-save-btn" id="btn-task-admin-save" onclick="uploadTaskAdminData()">Save</button>
       <div class="alert" id="alert-task-admin-save"></div>
       <div id="task-admin-post-save" style="display:none;margin-top:4px">
         <button class="btn btn-primary" onclick="taskAdminAnotherMachine()">Another Machine</button>
@@ -643,46 +644,91 @@ function hideProgressOverlay() {
   document.getElementById("progress-overlay").classList.remove("show");
 }
 
-// Like callApi, but shows a real percentage + time-remaining bar for large
-// transfers - fetch() can't expose byte-level progress, so this uses
-// XMLHttpRequest instead, which fires both upload and download progress
-// events. uploadWeight (0-100) splits the bar between the "sending" phase
-// and the "receiving" phase, based on which side of this call is actually
-// large (e.g. Upload actions are upload-heavy; structure downloads are
-// download-heavy).
+// Like callApi, but shows a percentage + time-remaining bar for large transfers.
+// Uses fetch() (not XHR) because Google Apps Script Web Apps respond via an
+// internal redirect that fetch() follows reliably but XMLHttpRequest handles
+// poorly for POST requests (causes spurious "Network error"). Download
+// progress is real (tracked via the response stream + Content-Length).
+// Upload progress is a smooth time-based estimate, since browsers currently
+// have no reliable byte-level upload-progress API for fetch() - this is a
+// genuine web platform limitation, not something worth risking reliability
+// over, so the estimate is clearly still driven by the known payload size.
 function callApiWithProgress(action, payload, label, uploadWeight) {
   const upWeight = (typeof uploadWeight === "number") ? uploadWeight : 50;
   const downWeight = 100 - upWeight;
-  return new Promise((resolve, reject) => {
-    showProgressOverlay(label);
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", API_URL, true);
-    xhr.setRequestHeader("Content-Type", "text/plain");
-    const startTime = Date.now();
+  const body = Object.assign({ action: action }, payload || {});
+  const bodyStr = JSON.stringify(body);
+  const uploadBytes = new Blob([bodyStr]).size;
 
-    function handleProgress(event, weight, offset) {
-      if (!event.lengthComputable) { updateProgressOverlay(offset + weight * 0.5, null); return; }
+  showProgressOverlay(label);
+  const startTime = Date.now();
+
+  // Estimate upload duration from payload size using a conservative assumed
+  // throughput (refined toward the end of the process once we know the true
+  // total elapsed time), so the bar still moves smoothly and predictably.
+  const assumedUploadBps = 200 * 1024; // ~200 KB/s assumed, conservative for mobile data
+  const estimatedUploadSeconds = Math.max(0.4, uploadBytes / assumedUploadBps);
+  let uploadTimer = null;
+  if (upWeight > 0) {
+    uploadTimer = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0 ? event.loaded / elapsed : 0; // bytes/sec
-      const remainingBytes = event.total - event.loaded;
-      const eta = speed > 0 ? remainingBytes / speed : null;
-      const percent = offset + (event.total > 0 ? (event.loaded / event.total) : 0) * weight;
-      updateProgressOverlay(percent, eta);
+      const fraction = Math.min(0.92, elapsed / estimatedUploadSeconds); // never quite hits 100% until real completion
+      const remaining = Math.max(0, estimatedUploadSeconds - elapsed);
+      updateProgressOverlay(fraction * upWeight, downWeight > 0 ? null : remaining);
+    }, 150);
+  }
+
+  return fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: bodyStr
+  }).then(res => {
+    if (uploadTimer) { clearInterval(uploadTimer); uploadTimer = null; }
+
+    if (downWeight === 0 || !res.body || !res.headers.get("content-length")) {
+      // No response-size info available - just show the upload portion completing
+      updateProgressOverlay(upWeight, null);
+      return res.json().then(json => { hideProgressOverlay(); return json; });
     }
 
-    xhr.upload.onprogress = (e) => handleProgress(e, upWeight, 0);
-    xhr.onprogress = (e) => handleProgress(e, downWeight, upWeight);
+    const totalBytes = parseInt(res.headers.get("content-length"), 10);
+    let receivedBytes = 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    const downloadStart = Date.now();
 
-    xhr.onload = () => {
-      hideProgressOverlay();
-      try { resolve(JSON.parse(xhr.responseText)); }
-      catch (e) { reject(new Error("Invalid server response")); }
-    };
-    xhr.onerror = () => { hideProgressOverlay(); reject(new Error("Network error")); };
-
-    const body = Object.assign({ action: action }, payload || {});
-    xhr.send(JSON.stringify(body));
+    function pump() {
+      return reader.read().then(({ done, value }) => {
+        if (done) {
+          hideProgressOverlay();
+          const text = new TextDecoder("utf-8").decode(concatChunks(chunks));
+          return JSON.parse(text);
+        }
+        chunks.push(value);
+        receivedBytes += value.length;
+        const elapsed = (Date.now() - downloadStart) / 1000;
+        const speed = elapsed > 0 ? receivedBytes / elapsed : 0;
+        const eta = speed > 0 ? (totalBytes - receivedBytes) / speed : null;
+        const percent = upWeight + (receivedBytes / totalBytes) * downWeight;
+        updateProgressOverlay(percent, eta);
+        return pump();
+      });
+    }
+    return pump();
+  }).catch(err => {
+    if (uploadTimer) clearInterval(uploadTimer);
+    hideProgressOverlay();
+    throw err;
   });
+}
+
+function concatChunks(chunks) {
+  let total = 0;
+  chunks.forEach(c => total += c.length);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(c => { result.set(c, offset); offset += c.length; });
+  return result;
 }
 
 function showToast(msg) {
