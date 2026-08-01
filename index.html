@@ -93,6 +93,16 @@
   #busy-overlay.show { display:flex; }
   #busy-overlay .busy-spinner { width: 36px; height: 36px; border: 4px solid rgba(255,255,255,.3);
     border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  #progress-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 210;
+    display:none; align-items:center; justify-content:center; }
+  #progress-overlay.show { display:flex; }
+  .progress-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 24px; width: 260px; text-align:center; }
+  .progress-label { font-size: 14px; font-weight:700; margin-bottom: 14px; }
+  .progress-bar-track { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    height: 14px; overflow:hidden; }
+  .progress-bar-fill { background: var(--accent); height: 100%; width: 0%; transition: width .15s linear; }
+  .progress-stats { font-size: 12px; color: var(--muted); margin-top: 10px; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -297,8 +307,7 @@
     </div>
   </div>
 
-  <!-- SCREEN: MACHINE PDI - SELECT MACHINE TYPE / NUMBER / SECTION -->
-  <!-- SCREEN: MACHINE PDI - SELECT MACHINE NUMBER -->
+  <!-- SCREEN: MACHINE PDI - SELECT MACHINE NUMBER (only machines with Machine Details are listed) -->
   <div class="screen" id="screen-pdi-select">
     <div class="topbar">
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
@@ -314,8 +323,7 @@
       </div>
       <div class="selected-badge" id="pdimachine-badge"></div>
     </div>
-    <button class="btn btn-success" id="btn-pdi-fill-online" onclick="startOnlinePdiFlow()">Fill PDI Online</button>
-    <button class="btn btn-primary" id="btn-pdi-fill-offline" onclick="startOfflinePdiFlow()">Fill PDI Offline</button>
+    <button class="btn btn-success" id="btn-pdi-fill-offline" onclick="startOfflinePdiFlow()">Start PDI</button>
     <div class="alert" id="alert-pdi-select"></div>
 
     <h4 style="margin-top:24px;margin-bottom:6px">Uncompleted PDIs</h4>
@@ -329,7 +337,7 @@
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
       <span class="page-title">Machine Details</span>
     </div>
-    <div class="task-count-text" style="margin-bottom:10px">Required once for this machine before starting the PDI.</div>
+    <div class="task-count-text" style="margin-bottom:10px">Required once for this machine before it can appear in Machine PDI.</div>
     <div class="card">
       <label>Machine Number</label>
       <input type="text" id="md-machine-display" disabled>
@@ -370,31 +378,6 @@
     </div>
   </div>
 
-  <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS (Online) -->
-  <div class="screen" id="screen-pdi-pages">
-    <div class="topbar">
-      <button class="btn-outline" onclick="exitPdiSection()">&larr; Exit</button>
-      <span class="page-title" id="pdi-page-section-title">Section</span>
-      <button class="btn-outline" id="btn-pdi-save-top" style="margin-left:auto;padding:9px 12px" onclick="manualSavePdiPage()">&#128190; Save</button>
-    </div>
-    <div class="pdi-progress" id="pdi-section-progress-text" style="display:none"></div>
-    <div class="pdi-progress" id="pdi-progress-text">Page 1 of 1</div>
-    <div class="card">
-      <h4 id="pdi-page-name" style="margin-bottom:10px"></h4>
-      <div id="pdi-options-list"></div>
-    </div>
-    <div class="pdi-nav-row">
-      <button class="btn btn-outline" id="btn-pdi-prev" onclick="pdiPrevPage()">Previous</button>
-      <button class="btn btn-primary" id="btn-pdi-next" onclick="pdiNextPage()">Next</button>
-    </div>
-    <button class="btn btn-success" id="btn-pdi-finish" style="display:none" onclick="finishPdiSection()">Finish Section</button>
-    <div class="alert" id="alert-pdi-page"></div>
-    <div id="pdi-post-submit" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="startAnotherPdiSection()">Back to Machine PDI</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
   <!-- SCREEN: MACHINE PDI - PAGE BY PAGE OPTIONS (Offline) -->
   <div class="screen" id="screen-pdi-offline">
     <div class="topbar">
@@ -428,13 +411,13 @@
     </div>
   </div>
 
-  <!-- SCREEN: TASK ADMIN -->
+  <!-- SCREEN: TASK ADMIN (offline: full PDI structure loaded at once, search bar to find things) -->
   <div class="screen" id="screen-task-admin">
     <div class="topbar">
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
       <span class="page-title">Task Admin</span>
     </div>
-    <div class="card">
+    <div class="card" id="task-admin-machine-card">
       <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
       <div class="search-wrap">
         <input type="text" id="taskadminmachine-search" autocomplete="off" inputmode="numeric"
@@ -443,26 +426,23 @@
         <div class="search-dropdown" id="taskadminmachine-dropdown"></div>
       </div>
       <div class="selected-badge" id="taskadminmachine-badge"></div>
-
-      <label>Section</label>
-      <div class="search-wrap">
-        <input type="text" id="taskadminsection-search" autocomplete="off"
-          placeholder="Type to search section..." oninput="filterDropdown('taskadminsection')"
-          onfocus="filterDropdown('taskadminsection')" onblur="onDropdownBlur('taskadminsection')">
-        <div class="search-dropdown" id="taskadminsection-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="taskadminsection-badge"></div>
     </div>
-    <button class="btn btn-primary" id="btn-task-admin-enter" onclick="taskAdminEnter()">Enter</button>
+    <button class="btn btn-primary" id="btn-task-admin-open" onclick="startTaskAdminOffline()">Open Task Admin</button>
     <div class="alert" id="alert-task-admin-select"></div>
 
-    <div id="task-admin-widgets-container"></div>
-    <button class="btn btn-success" id="btn-task-admin-save" style="display:none" onclick="taskAdminSave()">Save</button>
-    <div class="alert" id="alert-task-admin-save"></div>
-    <div id="task-admin-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="taskAdminChooseAnotherSection()">Choose Another Section</button>
-      <button class="btn btn-primary" onclick="taskAdminAnotherMachine()">Another Machine</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    <div id="task-admin-offline-view" style="display:none">
+      <div class="task-count-text" id="task-admin-machine-label"></div>
+      <div class="card">
+        <label>Search <span style="color:var(--muted)">(Section, Page, or Option)</span></label>
+        <input type="text" id="task-admin-search-bar" placeholder="Type to filter..." oninput="filterTaskAdminWidgets()">
+      </div>
+      <div id="task-admin-widgets-container"></div>
+      <button class="btn btn-success" id="btn-task-admin-save" onclick="uploadTaskAdminData()">Save</button>
+      <div class="alert" id="alert-task-admin-save"></div>
+      <div id="task-admin-post-save" style="display:none;margin-top:4px">
+        <button class="btn btn-primary" onclick="taskAdminAnotherMachine()">Another Machine</button>
+        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+      </div>
     </div>
   </div>
 
@@ -556,6 +536,13 @@
 </div>
 <div id="toast"></div>
 <div id="busy-overlay"><div class="busy-spinner"></div></div>
+<div id="progress-overlay">
+  <div class="progress-box">
+    <div class="progress-label" id="progress-label">Uploading...</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
+    <div class="progress-stats" id="progress-stats">Starting...</div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -578,14 +565,11 @@ let scannedQR = "";
 let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
 let selectedMovementMachine = "", selectedLocation = "";
 let selectedPdiMachine = "";
-let selectedMdYom = "";
-let mdEntryMode = "pdi"; // "pdi" (gate before PDI) or "addDetails" (standalone module)
+let machinesWithDetailsList = [];      // Machine PDI's Machine Number source (only machines WITH details)
+let machinesWithoutDetailsList = [];   // Add Machine Details' Machine Number source (only machines WITHOUT details)
 
 // Task Admin state
-let selectedTaskAdminMachine = "", selectedTaskAdminSection = "", selectedTaskAdminPage = "";
-let taskAdminSectionsList = [];
-let taskAdminPagesList = [];
-let taskAdminSpreadsheetId = "";
+let selectedTaskAdminMachine = "";
 
 // Task widgets (Assign / Complete / Approve) state
 let taskWidgetsMachineList = [];   // unique machine numbers among currently-loaded widgets, for the filter search
@@ -598,27 +582,6 @@ let pdiViewerItems = [];
 
 // Purchase Order state
 let selectedPoItem = "";
-
-// Month/Year list for the Machine Details YOM dropdown: Jan 2012 through the current month, newest first
-const YOM_OPTIONS = (function () {
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const now = new Date();
-  const list = [];
-  for (let y = now.getFullYear(); y >= 2012; y--) {
-    const maxMonth = (y === now.getFullYear()) ? now.getMonth() : 11;
-    for (let m = maxMonth; m >= 0; m--) {
-      list.push(months[m] + " " + y);
-    }
-  }
-  return list;
-})();
-let pdiMachineType = "", pdiSpreadsheetId = "", pdiSection = "";
-let pdiPages = [];         // [{ pageName, options: [...] }]
-let pdiCurrentPageIndex = 0;
-let pdiSelections = {};    // { pageIndex: Set(optionString) }
-let pdiFillAllMode = false;
-let pdiPendingSectionsQueue = [];  // section names remaining in Fill All Sections mode
-let pdiQueueIndex = 0;
 
 // Task Manager (Assign Task / Mark Task as Completed) state
 let taskMode = "";              // "assign" or "complete"
@@ -659,6 +622,66 @@ async function callApi(action, payload) {
     body: JSON.stringify(body)
   });
   return await res.json();
+}
+
+function showProgressOverlay(label) {
+  document.getElementById("progress-label").textContent = label;
+  document.getElementById("progress-bar-fill").style.width = "0%";
+  document.getElementById("progress-stats").textContent = "Starting...";
+  document.getElementById("progress-overlay").classList.add("show");
+}
+function updateProgressOverlay(percent, etaSeconds) {
+  const p = Math.max(0, Math.min(100, percent));
+  document.getElementById("progress-bar-fill").style.width = p.toFixed(0) + "%";
+  const etaText = (etaSeconds != null && isFinite(etaSeconds) && etaSeconds >= 0)
+    ? (etaSeconds < 1 ? "almost done..." : Math.ceil(etaSeconds) + "s remaining")
+    : "calculating...";
+  document.getElementById("progress-stats").textContent = p.toFixed(0) + "%  -  " + etaText;
+}
+function hideProgressOverlay() {
+  document.getElementById("progress-overlay").classList.remove("show");
+}
+
+// Like callApi, but shows a real percentage + time-remaining bar for large
+// transfers - fetch() can't expose byte-level progress, so this uses
+// XMLHttpRequest instead, which fires both upload and download progress
+// events. uploadWeight (0-100) splits the bar between the "sending" phase
+// and the "receiving" phase, based on which side of this call is actually
+// large (e.g. Upload actions are upload-heavy; structure downloads are
+// download-heavy).
+function callApiWithProgress(action, payload, label, uploadWeight) {
+  const upWeight = (typeof uploadWeight === "number") ? uploadWeight : 50;
+  const downWeight = 100 - upWeight;
+  return new Promise((resolve, reject) => {
+    showProgressOverlay(label);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_URL, true);
+    xhr.setRequestHeader("Content-Type", "text/plain");
+    const startTime = Date.now();
+
+    function handleProgress(event, weight, offset) {
+      if (!event.lengthComputable) { updateProgressOverlay(offset + weight * 0.5, null); return; }
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = elapsed > 0 ? event.loaded / elapsed : 0; // bytes/sec
+      const remainingBytes = event.total - event.loaded;
+      const eta = speed > 0 ? remainingBytes / speed : null;
+      const percent = offset + (event.total > 0 ? (event.loaded / event.total) : 0) * weight;
+      updateProgressOverlay(percent, eta);
+    }
+
+    xhr.upload.onprogress = (e) => handleProgress(e, upWeight, 0);
+    xhr.onprogress = (e) => handleProgress(e, downWeight, upWeight);
+
+    xhr.onload = () => {
+      hideProgressOverlay();
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch (e) { reject(new Error("Invalid server response")); }
+    };
+    xhr.onerror = () => { hideProgressOverlay(); reject(new Error("Network error")); };
+
+    const body = Object.assign({ action: action }, payload || {});
+    xhr.send(JSON.stringify(body));
+  });
 }
 
 function showToast(msg) {
@@ -779,15 +802,33 @@ function logout() {
 // ============================================================
 // DROPDOWN DATA
 // ============================================================
-async function loadDropdownData() {
+let dropdownDataLoadedAt = 0;
+const DROPDOWN_DATA_TTL_MS = 10 * 60 * 1000; // 10 minutes - reuse cached data across module switches within this window
+
+async function loadDropdownData(force) {
+  // Skip the network round trip if we already have reasonably fresh data -
+  // this is the single biggest speed win, since every module open used to
+  // re-fetch the entire Dropdown sheet + Employee sheet every single time.
+  if (!force && dropdownDataLoadedAt && (Date.now() - dropdownDataLoadedAt < DROPDOWN_DATA_TTL_MS)) {
+    return;
+  }
   try {
     const data = await callApi("getDropdownData", {});
     if (data.success) {
       dropdownData = data;
+      dropdownDataLoadedAt = Date.now();
       populateReasons();
       populateLaborOptions();
+    } else {
+      showToast("Could not load dropdown data: " + (data.error || "unknown error"));
     }
-  } catch (e) { /* silent - user can retry by re-entering module */ }
+  } catch (e) {
+    // Only surface this if we have no data at all yet - otherwise keep using
+    // whatever was already cached rather than nagging on every failed refresh.
+    if (!dropdownDataLoadedAt) {
+      showToast("Could not connect to server - machine lists may be empty. Try reopening this module.");
+    }
+  }
 }
 
 function populateReasons() {
@@ -852,7 +893,6 @@ async function openModule(mod) {
     showScreen("screen-task-admin");
   } else if (mod === "Add Machine Details") {
     await loadDropdownData();
-    mdEntryMode = "addDetails";
     resetAddMachineDetailsForm();
     showScreen("screen-machine-details");
   } else if (mod === "Assign Task" || mod === "Mark Task as Completed" || mod === "Approve Task") {
@@ -884,13 +924,12 @@ function filterDropdown(which) {
   dropdown.innerHTML = "";
   const isLocation = which === "location";
   const isEmployee = which.indexOf("assignee-") === 0;
-  const isYom = which === "mdyom";
-  const isTaskAdminSection = which === "taskadminsection";
-  const isTaskAdminPage = which === "taskadminpage";
   const isTaskFilterMachine = which === "taskfiltermachine";
   const isTaskFilterSection = which === "taskfiltersection";
   const isPoItem = which === "poitem";
-  const isPlainSubstring = isLocation || isEmployee || isYom || isTaskAdminSection || isTaskAdminPage || isTaskFilterSection || isPoItem;
+  const isPdiMachine = which === "pdimachine";       // Machine PDI: only machines WITH details
+  const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
+  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem;
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -901,13 +940,13 @@ function filterDropdown(which) {
     if (badge) { badge.classList.remove("show"); badge.textContent = ""; }
   }
 
-  const list = isEmployee ? (dropdownData.employees || []) : isYom ? YOM_OPTIONS
-    : isTaskAdminSection ? taskAdminSectionsList : isTaskAdminPage ? taskAdminPagesList
+  const list = isEmployee ? (dropdownData.employees || [])
     : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
     : isPoItem ? (dropdownData.stockItems || [])
+    : isPdiMachine ? machinesWithDetailsList : isAddMdMachine ? machinesWithoutDetailsList
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
-  const noResultsLabel = isEmployee ? "No employees found" : isYom ? "No matches found"
-    : (isTaskAdminSection || isTaskAdminPage || isTaskFilterMachine || isTaskFilterSection || isPoItem) ? "No matches found" : "No machines found";
+  const noResultsLabel = isEmployee ? "No employees found"
+    : (isTaskFilterMachine || isTaskFilterSection || isPoItem) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
     if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -947,10 +986,7 @@ function selectDropdownValue(which, m) {
   else if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "location") selectedLocation = m;
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
-  else if (which === "mdyom") selectedMdYom = m;
-  else if (which === "taskadminmachine") selectedTaskAdminMachine = m;
-  else if (which === "taskadminsection") selectedTaskAdminSection = m;
-  else if (which === "taskadminpage") selectedTaskAdminPage = m;
+  else if (which === "taskadminmachine") { selectedTaskAdminMachine = m; cacheTaskAdminStructureForMachine(); }
   else if (which === "addmdmachine") mdTargetMachine = m;
   else if (which === "taskfiltermachine") selectedTaskFilterMachine = m;
   else if (which === "taskfiltersection") selectedTaskFilterSection = m;
@@ -967,8 +1003,8 @@ function selectDropdownValue(which, m) {
 
 function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
-  selectedTaskAdminMachine = ""; selectedTaskAdminSection = ""; selectedViewerMachine = ""; selectedPoItem = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "taskadminsection", "viewermachine", "poitem"].forEach(which => {
+  selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -1206,10 +1242,18 @@ function submitNewMovementResponse() {
 function resetPdiSelectScreen() {
   resetDropdownSelections();
   hideAlert(document.getElementById("alert-pdi-select"));
-  pdiMachineType = DEFAULT_MACHINE_TYPE; pdiSpreadsheetId = ""; pdiSection = "";
-  pdiPages = []; pdiCurrentPageIndex = 0; pdiSelections = {};
-  pdiFillAllMode = false; pdiPendingSectionsQueue = []; pdiQueueIndex = 0;
+  pdiMachineType = DEFAULT_MACHINE_TYPE;
   loadUncompletedPdiList();
+  loadMachinesWithDetails();
+}
+
+// Machine PDI's Machine Number field only lists machines that already have
+// Machine Details on file.
+async function loadMachinesWithDetails() {
+  try {
+    const data = await callApi("getMachineDetailsSplit", {});
+    if (data.success) machinesWithDetailsList = data.withDetails || [];
+  } catch (e) { /* search will just show no results if this failed */ }
 }
 
 // ---- Uncompleted PDI widgets ----
@@ -1251,12 +1295,10 @@ function continueUncompletedPdi(machineNumber) {
   const badge = document.getElementById("pdimachine-badge");
   badge.textContent = "Selected: " + machineNumber;
   badge.classList.add("show");
-  startOnlinePdiFlow();
+  startOfflinePdiFlow();
 }
 
-// ---- Machine Details gate ----
-let pendingPdiModeAfterDetails = ""; // "online" or "offline"
-
+// ---- Machine Details (only reachable now via the "Add Machine Details" module) ----
 let mdTargetMachine = ""; // the machine currently being edited on screen-machine-details
 
 function populateMachineDetailsSelects() {
@@ -1269,35 +1311,6 @@ function populateMachineDetailsSelects() {
   fill("md-engine-type", dropdownData.engineTypes);
   fill("md-hyd-pump-type", dropdownData.hydPumpTypes);
 }
-
-async function ensureMachineDetailsThenStart(mode) {
-  const alertEl = document.getElementById("alert-pdi-select");
-  hideAlert(alertEl);
-  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-
-  try {
-    const data = await callApi("checkMachineDetails", { machineNumber: selectedPdiMachine });
-    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not check Machine Details."); return; }
-    if (data.exists) {
-      if (mode === "online") proceedOnlinePdi();
-      else proceedOfflinePdi();
-    } else {
-      mdEntryMode = "pdi";
-      pendingPdiModeAfterDetails = mode;
-      mdTargetMachine = selectedPdiMachine;
-      document.getElementById("md-machine-search-wrap").style.display = "none";
-      document.getElementById("md-machine-display").style.display = "block";
-      document.getElementById("md-machine-display").value = selectedPdiMachine;
-      resetMachineDetailsFormFields();
-      showScreen("screen-machine-details");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-function startOnlinePdiFlow() { ensureMachineDetailsThenStart("online"); }
-function startOfflinePdiFlow() { ensureMachineDetailsThenStart("offline"); }
 
 function resetMachineDetailsFormFields() {
   document.getElementById("md-serial").value = "";
@@ -1315,14 +1328,21 @@ function resetMachineDetailsFormFields() {
 
 // Entry point for the standalone "Add Machine Details" module
 function resetAddMachineDetailsForm() {
-  mdEntryMode = "addDetails";
   mdTargetMachine = "";
-  document.getElementById("md-machine-search-wrap").style.display = "block";
-  document.getElementById("md-machine-display").style.display = "none";
   document.getElementById("addmdmachine-search").value = "";
   const mBadge = document.getElementById("addmdmachine-badge");
   mBadge.classList.remove("show"); mBadge.textContent = "";
   resetMachineDetailsFormFields();
+  loadMachinesWithoutDetails();
+}
+
+// Add Machine Details' Machine Number field only lists machines that DON'T
+// already have Machine Details on file.
+async function loadMachinesWithoutDetails() {
+  try {
+    const data = await callApi("getMachineDetailsSplit", {});
+    if (data.success) machinesWithoutDetailsList = data.withoutDetails || [];
+  } catch (e) { /* search will just show no results if this failed */ }
 }
 
 async function saveMachineDetailsAndContinue() {
@@ -1330,8 +1350,7 @@ async function saveMachineDetailsAndContinue() {
   const btn = document.getElementById("btn-save-machine-details");
   hideAlert(alertEl);
 
-  const targetMachine = (mdEntryMode === "addDetails") ? mdTargetMachine : selectedPdiMachine;
-  if (!targetMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  if (!mdTargetMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
 
   const serial = document.getElementById("md-serial").value.trim();
   const yom = document.getElementById("md-yom").value.trim().toUpperCase();
@@ -1360,19 +1379,13 @@ async function saveMachineDetailsAndContinue() {
   showBusyOverlay();
   try {
     const data = await callApi("saveMachineDetails", {
-      machineNumber: targetMachine, serialNumber: serial, yom: yom,
+      machineNumber: mdTargetMachine, serialNumber: serial, yom: yom,
       hp: hp, hmr: hmr, model: model, engineType: engineType, hydPumpType: hydPumpType
     });
     if (data.success) {
-      if (mdEntryMode === "addDetails") {
-        showAlert(alertEl, "success", data.alreadyExisted ? "Machine Details already existed on file for this machine." : "Machine Details saved.");
-        btn.style.display = "none";
-        document.getElementById("machine-details-post-save").style.display = "block";
-      } else if (pendingPdiModeAfterDetails === "online") {
-        proceedOnlinePdi();
-      } else {
-        proceedOfflinePdi();
-      }
+      showAlert(alertEl, "success", data.alreadyExisted ? "Machine Details already existed on file for this machine." : "Machine Details saved.");
+      btn.style.display = "none";
+      document.getElementById("machine-details-post-save").style.display = "block";
     } else {
       showAlert(alertEl, "error", data.error || "Could not save Machine Details.");
     }
@@ -1384,335 +1397,192 @@ async function saveMachineDetailsAndContinue() {
   }
 }
 
-// ---- ONLINE PDI (always fills every pending section, back-to-back) ----
-async function proceedOnlinePdi() {
-  const alertEl = document.getElementById("alert-pdi-select");
-  hideAlert(alertEl);
-  try {
-    const data = await callApi("getPdiSections", { machineType: pdiMachineType, machineNumber: selectedPdiMachine });
-    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not load sections."); return; }
-    pdiSpreadsheetId = data.pdiSpreadsheetId;
-    pdiPendingSectionsQueue = data.sections || [];
-    if (pdiPendingSectionsQueue.length === 0) {
-      showAlert(alertEl, "success", "All sections are already completed for this machine.");
-      return;
-    }
-    pdiFillAllMode = true;
-    pdiQueueIndex = 0;
-    const ok = await enterPdiSection(pdiPendingSectionsQueue[0], alertEl);
-    if (ok) showScreen("screen-pdi-pages");
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-// Fetches a Section's pages/options (plus any already-saved selections, for
-// resuming), pre-checks them, and prepares the pages screen. Returns true on success.
-async function enterPdiSection(section, alertEl) {
-  try {
-    const data = await callApi("startPdiSection", {
-      machineType: pdiMachineType, machineNumber: selectedPdiMachine, section: section
-    });
-    if (data.success) {
-      pdiSection = section;
-      pdiSpreadsheetId = data.pdiSpreadsheetId;
-      pdiPages = data.pages || [];
-      pdiCurrentPageIndex = 0;
-      pdiSelections = {};
-      (data.existingSelections || []).forEach(sel => {
-        const pageIdx = pdiPages.findIndex(p => p.pageName === sel.page);
-        if (pageIdx >= 0) {
-          if (!pdiSelections[pageIdx]) pdiSelections[pageIdx] = new Set();
-          pdiSelections[pageIdx].add(sel.option);
-        }
-      });
-      renderPdiPage();
-      return true;
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not start this Section.");
-      return false;
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-    return false;
-  }
-}
-
-function renderPdiPage() {
-  const idx = pdiCurrentPageIndex;
-  const page = pdiPages[idx];
-  const total = pdiPages.length;
-  hideAlert(document.getElementById("alert-pdi-page"));
-  document.getElementById("pdi-post-submit").style.display = "none";
-
-  document.getElementById("pdi-page-section-title").textContent = pdiSection;
-  document.getElementById("pdi-progress-text").textContent = "Page " + (idx + 1) + " of " + total;
-  document.getElementById("pdi-page-name").textContent = page.pageName;
-  document.getElementById("pdi-section-progress-text").style.display = "block";
-  document.getElementById("pdi-section-progress-text").textContent =
-    "Section " + (pdiQueueIndex + 1) + " of " + pdiPendingSectionsQueue.length + ": " + pdiSection;
-
-  const selectedSet = pdiSelections[idx] || new Set();
-  const listEl = document.getElementById("pdi-options-list");
-  listEl.innerHTML = "";
-  page.options.forEach((opt, optIdx) => {
-    const id = "pdi-opt-" + idx + "-" + optIdx;
-    const row = document.createElement("div");
-    row.className = "option-item";
-    row.innerHTML = '<input type="checkbox" id="' + id + '"' + (selectedSet.has(opt) ? " checked" : "") + '>' +
-      '<label for="' + id + '">' + escHtml(opt) + '</label>';
-    row.querySelector("input").addEventListener("change", (e) => {
-      togglePdiOption(idx, opt, e.target.checked);
-    });
-    listEl.appendChild(row);
-  });
-
-  document.getElementById("btn-pdi-prev").style.display = (idx === 0) ? "none" : "block";
-  const isLast = idx === total - 1;
-  document.getElementById("btn-pdi-next").style.display = isLast ? "none" : "block";
-  document.getElementById("btn-pdi-finish").style.display = isLast ? "block" : "none";
-}
-
-function togglePdiOption(pageIndex, option, isChecked) {
-  if (!pdiSelections[pageIndex]) pdiSelections[pageIndex] = new Set();
-  if (isChecked) pdiSelections[pageIndex].add(option);
-  else pdiSelections[pageIndex].delete(option);
-}
-
-async function syncPdiPage(pageIndex) {
-  const page = pdiPages[pageIndex];
-  if (!page) return { success: true };
-  const options = Array.from(pdiSelections[pageIndex] || []);
-  try {
-    return await callApi("syncPdiPage", {
-      pdiSpreadsheetId: pdiSpreadsheetId, username: currentUser,
-      machineNumber: selectedPdiMachine, section: pdiSection, page: page.pageName, options: options
-    });
-  } catch (e) {
-    return { success: false, error: "Could not connect to server." };
-  }
-}
-
-async function manualSavePdiPage() {
-  const btn = document.getElementById("btn-pdi-save-top");
-  const alertEl = document.getElementById("alert-pdi-page");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  showBusyOverlay();
-  const result = await syncPdiPage(pdiCurrentPageIndex);
-  btn.disabled = false; btn.innerHTML = "&#128190; Save";
-  hideBusyOverlay();
-  if (result.success) showToast("Saved.");
-  else showAlert(alertEl, "error", result.error || "Could not save.");
-}
-
-async function pdiNextPage() {
-  if (pdiCurrentPageIndex < pdiPages.length - 1) {
-    const btn = document.getElementById("btn-pdi-next");
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-    await syncPdiPage(pdiCurrentPageIndex);
-    btn.disabled = false; btn.innerHTML = "Next";
-    pdiCurrentPageIndex++;
-    renderPdiPage();
-  }
-}
-
-async function pdiPrevPage() {
-  if (pdiCurrentPageIndex > 0) {
-    const btn = document.getElementById("btn-pdi-prev");
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-    await syncPdiPage(pdiCurrentPageIndex);
-    btn.disabled = false; btn.innerHTML = "Previous";
-    pdiCurrentPageIndex--;
-    renderPdiPage();
-  }
-}
-
-function exitPdiSection() { goHome(); }
-
-async function finishPdiSection() {
-  const alertEl = document.getElementById("alert-pdi-page");
-  const btn = document.getElementById("btn-pdi-finish");
-  hideAlert(alertEl);
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  const syncResult = await syncPdiPage(pdiCurrentPageIndex);
-  if (!syncResult.success) {
-    showAlert(alertEl, "error", syncResult.error || "Could not save this page.");
-    btn.disabled = false; btn.innerHTML = "Finish Section";
-    hideBusyOverlay();
-    return;
-  }
-
-  try {
-    const data = await callApi("finishPdiSection", {
-      pdiSpreadsheetId: pdiSpreadsheetId, machineNumber: selectedPdiMachine, section: pdiSection
-    });
-    if (data.success) {
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      if (pdiQueueIndex < pdiPendingSectionsQueue.length - 1) {
-        pdiQueueIndex++;
-        showToast("Section complete. Moving to next section...");
-        const nextSection = pdiPendingSectionsQueue[pdiQueueIndex];
-        const ok = await enterPdiSection(nextSection, alertEl);
-        if (!ok) { btn.disabled = false; btn.innerHTML = "Finish Section"; hideBusyOverlay(); return; }
-      } else {
-        showAlert(alertEl, "success", "All sections completed for this machine!");
-        document.getElementById("btn-pdi-prev").style.display = "none";
-        document.getElementById("btn-pdi-next").style.display = "none";
-        btn.style.display = "none";
-        document.getElementById("pdi-post-submit").style.display = "block";
-      }
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to complete section.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to complete section: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Finish Section";
-    hideBusyOverlay();
-  }
-}
-
-async function startAnotherPdiSection() {
-  await loadDropdownData();
-  resetPdiSelectScreen();
-  showScreen("screen-pdi-select");
-}
-
 // ============================================================
-// TASK ADMIN (ad-hoc: add auto-approved tasks for any Machine/Section/Page)
+// TASK ADMIN (offline: full PDI structure cached locally, search bar to
+// find Sections/Pages/Options, one Save uploads everything at the end.
+// Every inserted row gets Column H = "yes" - auto-approved.)
 // ============================================================
 function resetTaskAdminScreen() {
   resetDropdownSelections();
-  selectedTaskAdminMachine = ""; selectedTaskAdminSection = "";
-  taskAdminSectionsList = []; taskAdminSpreadsheetId = "";
-  taskAdminPagesData = []; taskAdminSelections = {};
+  selectedTaskAdminMachine = "";
+  taskAdminSession = null;
   document.getElementById("taskadminmachine-search").value = "";
-  document.getElementById("taskadminsection-search").value = "";
-  ["taskadminmachine", "taskadminsection"].forEach(w => {
-    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
-  });
-  document.getElementById("task-admin-widgets-container").innerHTML = "";
-  document.getElementById("btn-task-admin-save").style.display = "none";
-  document.getElementById("btn-task-admin-enter").style.display = "block";
+  const b = document.getElementById("taskadminmachine-badge");
+  if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("task-admin-machine-card").style.display = "block";
+  document.getElementById("btn-task-admin-open").style.display = "block";
+  document.getElementById("task-admin-offline-view").style.display = "none";
   document.getElementById("task-admin-post-save").style.display = "none";
+  document.getElementById("btn-task-admin-save").style.display = "block";
+  document.getElementById("task-admin-search-bar").value = "";
   hideAlert(document.getElementById("alert-task-admin-select"));
   hideAlert(document.getElementById("alert-task-admin-save"));
-  loadTaskAdminSections();
 }
 
-// Keep the Machine Number, only reset Section/widgets - for "Choose Another Section"
-function resetTaskAdminSectionOnly() {
-  selectedTaskAdminSection = "";
-  taskAdminPagesData = []; taskAdminSelections = {};
-  document.getElementById("taskadminsection-search").value = "";
-  const b = document.getElementById("taskadminsection-badge");
-  b.classList.remove("show"); b.textContent = "";
-  document.getElementById("task-admin-widgets-container").innerHTML = "";
-  document.getElementById("btn-task-admin-save").style.display = "none";
-  document.getElementById("btn-task-admin-enter").style.display = "block";
-  document.getElementById("task-admin-post-save").style.display = "none";
-  hideAlert(document.getElementById("alert-task-admin-select"));
-  hideAlert(document.getElementById("alert-task-admin-save"));
+function taskAdminAnotherMachine() {
+  resetTaskAdminScreen();
   showScreen("screen-task-admin");
 }
 
-function taskAdminChooseAnotherSection() { resetTaskAdminSectionOnly(); }
-function taskAdminAnotherMachine() { resetTaskAdminScreen(); showScreen("screen-task-admin"); }
-
-async function loadTaskAdminSections() {
+// Fired automatically in the background whenever a Machine Number is picked,
+// so the full structure is ready on-device even with no internet later.
+async function cacheTaskAdminStructureForMachine(withProgress) {
   try {
-    const data = await callApi("getPdiSections", { machineType: DEFAULT_MACHINE_TYPE });
+    const data = withProgress
+      ? await callApiWithProgress("getFullTaskAdminStructure", { machineType: DEFAULT_MACHINE_TYPE }, "Downloading PDI data...", 10)
+      : await callApi("getFullTaskAdminStructure", { machineType: DEFAULT_MACHINE_TYPE });
     if (data.success) {
-      taskAdminSectionsList = data.sections || [];
-      taskAdminSpreadsheetId = data.pdiSpreadsheetId;
+      localStorage.setItem("taskadmin_cache", JSON.stringify({ pdiSpreadsheetId: data.pdiSpreadsheetId, sections: data.sections }));
     }
-  } catch (e) { /* section search will just show no results if this failed */ }
+  } catch (e) { /* best effort - Open will show an error if nothing cached yet */ }
 }
 
-let taskAdminPagesData = [];       // [{ pageName, options: [...] }]
-let taskAdminSelections = {};      // { pageIndex: Set(optionString) }
+let taskAdminSession = null; // { machineNumber, pdiSpreadsheetId, sections: [{section, pages:[{pageName, options}]}], selections: { "section||page": [options] } }
 
-async function taskAdminEnter() {
+async function startTaskAdminOffline() {
   const alertEl = document.getElementById("alert-task-admin-select");
-  const btn = document.getElementById("btn-task-admin-enter");
   hideAlert(alertEl);
-
   if (!selectedTaskAdminMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-  if (!selectedTaskAdminSection) { showAlert(alertEl, "error", "Please select a Section."); return; }
 
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
-  try {
-    const data = await callApi("getSectionPages", { machineType: DEFAULT_MACHINE_TYPE, section: selectedTaskAdminSection });
-    if (data.success) {
-      taskAdminSpreadsheetId = data.pdiSpreadsheetId;
-      taskAdminPagesData = data.pages || [];
-      taskAdminSelections = {};
-      renderTaskAdminWidgets();
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not load pages.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Enter";
+  const machineNumber = selectedTaskAdminMachine;
+
+  // Resume an existing offline session for this machine if one exists
+  const existingRaw = localStorage.getItem("taskadmin_offline_" + machineNumber);
+  if (existingRaw) {
+    try {
+      taskAdminSession = JSON.parse(existingRaw);
+      showTaskAdminOfflineView();
+      return;
+    } catch (e) { /* fall through to fresh start */ }
+  }
+
+  // Otherwise start fresh from the cached structure (refresh it first to be safe)
+  await cacheTaskAdminStructureForMachine(true);
+  const cachedRaw = localStorage.getItem("taskadmin_cache");
+  if (!cachedRaw) {
+    showAlert(alertEl, "error", "Offline data isn't ready yet. Make sure you're online and try again.");
+    return;
+  }
+  const cached = JSON.parse(cachedRaw);
+  if (!cached.sections || cached.sections.length === 0) {
+    showAlert(alertEl, "error", "No PDI structure found to load.");
+    return;
+  }
+
+  taskAdminSession = {
+    machineNumber: machineNumber,
+    pdiSpreadsheetId: cached.pdiSpreadsheetId,
+    sections: cached.sections,
+    selections: {}
+  };
+  saveTaskAdminSessionToStorage();
+  showTaskAdminOfflineView();
+}
+
+function saveTaskAdminSessionToStorage() {
+  if (taskAdminSession) {
+    localStorage.setItem("taskadmin_offline_" + taskAdminSession.machineNumber, JSON.stringify(taskAdminSession));
   }
 }
 
-function renderTaskAdminWidgets() {
+function showTaskAdminOfflineView() {
+  document.getElementById("task-admin-machine-card").style.display = "none";
+  document.getElementById("btn-task-admin-open").style.display = "none";
+  document.getElementById("task-admin-offline-view").style.display = "block";
+  document.getElementById("task-admin-machine-label").textContent = "Machine: " + taskAdminSession.machineNumber;
+  document.getElementById("task-admin-search-bar").value = "";
+  document.getElementById("btn-task-admin-save").style.display = "block";
+  document.getElementById("task-admin-post-save").style.display = "none";
+  renderTaskAdminWidgets("");
+}
+
+function filterTaskAdminWidgets() {
+  const query = document.getElementById("task-admin-search-bar").value.trim().toLowerCase();
+  renderTaskAdminWidgets(query);
+}
+
+function taskAdminWidgetKey(section, page) { return section + "||" + page; }
+function taskAdminCssKey(key) { return key.replace(/[^a-zA-Z0-9]/g, "_"); }
+
+function renderTaskAdminWidgets(query) {
   const container = document.getElementById("task-admin-widgets-container");
   container.innerHTML = "";
+  let shown = 0;
 
-  taskAdminPagesData.forEach((page, pageIdx) => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.marginTop = "12px";
-    let html = '<h4 style="margin-bottom:10px">' + escHtml(page.pageName) + '</h4><div id="task-admin-page-options-' + pageIdx + '"></div>';
-    card.innerHTML = html;
-    container.appendChild(card);
+  taskAdminSession.sections.forEach(sectionEntry => {
+    sectionEntry.pages.forEach(page => {
+      const matchesQuery = !query ||
+        sectionEntry.section.toLowerCase().includes(query) ||
+        page.pageName.toLowerCase().includes(query) ||
+        page.options.some(o => o.toLowerCase().includes(query));
+      if (!matchesQuery) return;
+      shown++;
 
-    const listEl = card.querySelector("#task-admin-page-options-" + pageIdx);
-    page.options.forEach((opt, optIdx) => {
-      const id = "task-admin-opt-" + pageIdx + "-" + optIdx;
-      const row = document.createElement("div");
-      row.className = "option-item";
-      row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(opt) + '</label>';
-      row.querySelector("input").addEventListener("change", (e) => {
-        if (!taskAdminSelections[pageIdx]) taskAdminSelections[pageIdx] = new Set();
-        if (e.target.checked) taskAdminSelections[pageIdx].add(opt);
-        else taskAdminSelections[pageIdx].delete(opt);
+      const key = taskAdminWidgetKey(sectionEntry.section, page.pageName);
+      const ck = taskAdminCssKey(key);
+      const selectedArr = taskAdminSession.selections[key] || [];
+
+      const card = document.createElement("div");
+      card.className = "task-card";
+      card.innerHTML = '<div class="task-title">' + escHtml(page.pageName) + '</div>' +
+        '<div class="task-sub">Section: ' + escHtml(sectionEntry.section) + '</div>' +
+        '<div id="task-admin-opts-' + ck + '" style="margin-top:8px"></div>';
+      container.appendChild(card);
+
+      const listEl = card.querySelector("#task-admin-opts-" + ck);
+      page.options.forEach((opt, optIdx) => {
+        const id = "task-admin-opt-" + ck + "-" + optIdx;
+        const row = document.createElement("div");
+        row.className = "option-item";
+        row.innerHTML = '<input type="checkbox" id="' + id + '"' + (selectedArr.indexOf(opt) >= 0 ? " checked" : "") + '>' +
+          '<label for="' + id + '">' + escHtml(opt) + '</label>';
+        row.querySelector("input").addEventListener("change", (e) => {
+          toggleTaskAdminOption(key, opt, e.target.checked);
+        });
+        listEl.appendChild(row);
       });
-      listEl.appendChild(row);
     });
   });
 
-  document.getElementById("btn-task-admin-save").style.display = "block";
-  document.getElementById("btn-task-admin-enter").style.display = "none";
+  if (shown === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:14px">No matches found.</p>';
+  }
 }
 
-async function taskAdminSave() {
+function toggleTaskAdminOption(key, option, isChecked) {
+  if (!taskAdminSession.selections[key]) taskAdminSession.selections[key] = [];
+  const arr = taskAdminSession.selections[key];
+  const pos = arr.indexOf(option);
+  if (isChecked && pos === -1) arr.push(option);
+  else if (!isChecked && pos >= 0) arr.splice(pos, 1);
+  saveTaskAdminSessionToStorage();
+}
+
+async function uploadTaskAdminData() {
   const alertEl = document.getElementById("alert-task-admin-save");
   const btn = document.getElementById("btn-task-admin-save");
   hideAlert(alertEl);
 
-  const pagesData = taskAdminPagesData.map((page, idx) => ({
-    page: page.pageName,
-    options: Array.from(taskAdminSelections[idx] || [])
-  })).filter(p => p.options.length > 0);
+  const sectionsData = taskAdminSession.sections.map(sectionEntry => {
+    const pages = sectionEntry.pages.map(page => ({
+      page: page.pageName,
+      options: taskAdminSession.selections[taskAdminWidgetKey(sectionEntry.section, page.pageName)] || []
+    })).filter(p => p.options.length > 0);
+    return { section: sectionEntry.section, pages: pages };
+  }).filter(s => s.pages.length > 0);
 
-  if (pagesData.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
+  if (sectionsData.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
   try {
-    const data = await callApi("saveTaskAdminSection", {
-      pdiSpreadsheetId: taskAdminSpreadsheetId, username: currentUser,
-      machineNumber: selectedTaskAdminMachine, section: selectedTaskAdminSection, pagesData: pagesData
-    });
+    const data = await callApiWithProgress("uploadTaskAdminData", {
+      pdiSpreadsheetId: taskAdminSession.pdiSpreadsheetId, username: currentUser,
+      machineNumber: taskAdminSession.machineNumber, sectionsData: sectionsData
+    }, "Uploading tasks...", 90);
     if (data.success) {
       showAlert(alertEl, "success", data.savedCount + " item(s) saved and auto-approved.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      localStorage.removeItem("taskadmin_offline_" + taskAdminSession.machineNumber);
       btn.style.display = "none";
       document.getElementById("task-admin-post-save").style.display = "block";
     } else {
@@ -1722,17 +1592,19 @@ async function taskAdminSave() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Save";
-    hideBusyOverlay();
   }
 }
 
 // ---- OFFLINE PDI ----
 
+
 // Fired automatically in the background whenever a Machine Number is picked
 // while online, so the data is ready on-device if the user later goes offline.
-async function cacheOfflineStructureForMachine(machineNumber) {
+async function cacheOfflineStructureForMachine(machineNumber, withProgress) {
   try {
-    const data = await callApi("getFullPdiStructureForMachine", { machineType: DEFAULT_MACHINE_TYPE, machineNumber: machineNumber });
+    const data = withProgress
+      ? await callApiWithProgress("getFullPdiStructureForMachine", { machineType: DEFAULT_MACHINE_TYPE, machineNumber: machineNumber }, "Downloading PDI data...", 10)
+      : await callApi("getFullPdiStructureForMachine", { machineType: DEFAULT_MACHINE_TYPE, machineNumber: machineNumber });
     if (data.success) {
       localStorage.setItem("pdi_cache_" + machineNumber, JSON.stringify({ pdiSpreadsheetId: data.pdiSpreadsheetId, sections: data.sections }));
     }
@@ -1740,6 +1612,13 @@ async function cacheOfflineStructureForMachine(machineNumber) {
 }
 
 let offlineSession = null; // current in-progress offline session (see structure below)
+
+function startOfflinePdiFlow() {
+  const alertEl = document.getElementById("alert-pdi-select");
+  hideAlert(alertEl);
+  if (!selectedPdiMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
+  proceedOfflinePdi();
+}
 
 async function proceedOfflinePdi() {
   const alertEl = document.getElementById("alert-pdi-select");
@@ -1758,7 +1637,7 @@ async function proceedOfflinePdi() {
   }
 
   // Otherwise start fresh from the cached structure (refresh it first to be safe)
-  await cacheOfflineStructureForMachine(machineNumber);
+  await cacheOfflineStructureForMachine(machineNumber, true);
   const cachedRaw = localStorage.getItem("pdi_cache_" + machineNumber);
   if (!cachedRaw) {
     showAlert(alertEl, "error", "Offline data isn't ready yet for this machine. Make sure you're online and try again.");
@@ -1924,12 +1803,11 @@ async function uploadOfflinePdi() {
   });
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
-  showBusyOverlay();
   try {
-    const data = await callApi("uploadOfflinePdi", {
+    const data = await callApiWithProgress("uploadOfflinePdi", {
       pdiSpreadsheetId: offlineSession.pdiSpreadsheetId, username: currentUser,
       machineNumber: offlineSession.machineNumber, sectionsData: sectionsData
-    });
+    }, "Uploading PDI...", 90);
     if (data.success) {
       const summary = (data.results || []).map(r => r.section + ": " + r.status).join(", ");
       showAlert(alertEl, "success", "Upload complete. " + summary);
@@ -1945,7 +1823,6 @@ async function uploadOfflinePdi() {
     showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Upload";
-    hideBusyOverlay();
   }
 }
 
