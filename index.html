@@ -565,8 +565,9 @@ let scannedQR = "";
 let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
 let selectedMovementMachine = "", selectedLocation = "";
 let selectedPdiMachine = "";
-let machinesWithDetailsList = [];      // Machine PDI's Machine Number source (only machines WITH details)
-let machinesWithoutDetailsList = [];   // Add Machine Details' Machine Number source (only machines WITHOUT details)
+// Machine PDI / Add Machine Details / Assign Task / Mark Task as Completed now each
+// use their own dedicated Machine Number column from the Dropdown sheet (loaded as
+// part of dropdownData.machinesPdi / machinesAddDetails / machinesAssignTask / machinesCompleteTask)
 
 // Task Admin state
 let selectedTaskAdminMachine = "";
@@ -943,7 +944,7 @@ function filterDropdown(which) {
   const list = isEmployee ? (dropdownData.employees || [])
     : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
     : isPoItem ? (dropdownData.stockItems || [])
-    : isPdiMachine ? machinesWithDetailsList : isAddMdMachine ? machinesWithoutDetailsList
+    : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
   const noResultsLabel = isEmployee ? "No employees found"
     : (isTaskFilterMachine || isTaskFilterSection || isPoItem) ? "No matches found" : "No machines found";
@@ -1244,18 +1245,10 @@ function resetPdiSelectScreen() {
   hideAlert(document.getElementById("alert-pdi-select"));
   pdiMachineType = DEFAULT_MACHINE_TYPE;
   loadUncompletedPdiList();
-  loadMachinesWithDetails();
 }
 
 // Machine PDI's Machine Number field only lists machines that already have
 // Machine Details on file.
-async function loadMachinesWithDetails() {
-  try {
-    const data = await callApi("getMachineDetailsSplit", {});
-    if (data.success) machinesWithDetailsList = data.withDetails || [];
-  } catch (e) { /* search will just show no results if this failed */ }
-}
-
 // ---- Uncompleted PDI widgets ----
 async function loadUncompletedPdiList() {
   const container = document.getElementById("uncompleted-pdi-list");
@@ -1333,16 +1326,6 @@ function resetAddMachineDetailsForm() {
   const mBadge = document.getElementById("addmdmachine-badge");
   mBadge.classList.remove("show"); mBadge.textContent = "";
   resetMachineDetailsFormFields();
-  loadMachinesWithoutDetails();
-}
-
-// Add Machine Details' Machine Number field only lists machines that DON'T
-// already have Machine Details on file.
-async function loadMachinesWithoutDetails() {
-  try {
-    const data = await callApi("getMachineDetailsSplit", {});
-    if (data.success) machinesWithoutDetailsList = data.withoutDetails || [];
-  } catch (e) { /* search will just show no results if this failed */ }
 }
 
 async function saveMachineDetailsAndContinue() {
@@ -1875,7 +1858,14 @@ async function loadTaskWidgets() {
 }
 
 function buildTaskFilterOptions() {
-  taskWidgetsMachineList = [...new Set(allTaskWidgets.map(w => w.machineNumber))].sort();
+  if (taskMode === "assign") {
+    taskWidgetsMachineList = (dropdownData.machinesAssignTask || []).slice().sort();
+  } else if (taskMode === "complete") {
+    taskWidgetsMachineList = (dropdownData.machinesCompleteTask || []).slice().sort();
+  } else {
+    // Approve Task keeps the previous behavior: only machines that actually have widgets loaded
+    taskWidgetsMachineList = [...new Set(allTaskWidgets.map(w => w.machineNumber))].sort();
+  }
   taskWidgetsSectionList = [...new Set(allTaskWidgets.map(w => w.section))].sort();
 }
 
