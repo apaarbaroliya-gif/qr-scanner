@@ -328,6 +328,10 @@
     <button class="btn btn-success" id="btn-pdi-fill-offline" onclick="startOfflinePdiFlow()">Start PDI</button>
     <div class="alert" id="alert-pdi-select"></div>
 
+    <h4 style="margin-top:24px;margin-bottom:6px">Ready to Upload</h4>
+    <div class="task-count-text" id="pdi-pending-upload-count" style="margin:0 0 8px"></div>
+    <div id="pdi-pending-upload-list"></div>
+
     <h4 style="margin-top:24px;margin-bottom:6px">Uncompleted PDIs</h4>
     <div class="task-count-text" id="uncompleted-pdi-count" style="margin:0 0 8px"></div>
     <div id="uncompleted-pdi-list"></div>
@@ -430,6 +434,12 @@
     </div>
     <button class="btn btn-primary" id="btn-task-admin-open" onclick="startTaskAdminOffline()">Open Task Admin</button>
     <div class="alert" id="alert-task-admin-select"></div>
+
+    <div id="task-admin-pending-section">
+      <h4 style="margin-top:24px;margin-bottom:6px">Transfer Pending</h4>
+      <div class="task-count-text" id="taskadmin-pending-count" style="margin:0 0 8px"></div>
+      <div id="taskadmin-pending-list"></div>
+    </div>
 
     <div id="task-admin-offline-view" style="display:none;padding-bottom:70px">
       <div class="task-count-text" id="task-admin-machine-label"></div>
@@ -1291,6 +1301,7 @@ function resetPdiSelectScreen() {
   hideAlert(document.getElementById("alert-pdi-select"));
   pdiMachineType = DEFAULT_MACHINE_TYPE;
   loadUncompletedPdiList();
+  loadPdiPendingUploads();
 }
 
 // Machine PDI's Machine Number field only lists machines that already have
@@ -1335,6 +1346,63 @@ function continueUncompletedPdi(machineNumber) {
   badge.textContent = "Selected: " + machineNumber;
   badge.classList.add("show");
   startOfflinePdiFlow();
+}
+
+// ---- "Ready to Upload" widgets: locally-completed PDIs sitting on this device ----
+function loadPdiPendingUploads() {
+  const container = document.getElementById("pdi-pending-upload-list");
+  const countEl = document.getElementById("pdi-pending-upload-count");
+  container.innerHTML = "";
+
+  const pending = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || key.indexOf("pdi_offline_progress_") !== 0) continue;
+    try {
+      const session = JSON.parse(localStorage.getItem(key));
+      if (session && session.complete) pending.push(session);
+    } catch (e) { /* skip corrupted entry */ }
+  }
+
+  countEl.textContent = pending.length === 0 ? "Nothing waiting to upload." : pending.length + " machine(s) ready";
+  pending.forEach(session => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    const ck = "pdiupload_" + session.machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
+    card.innerHTML = '<div class="task-title">' + escHtml(session.machineNumber) + '</div>' +
+      '<div class="task-sub" style="color:var(--warning)">Transfer Pending \u2014 completed offline, not yet uploaded</div>' +
+      '<button class="btn btn-success" style="margin-top:10px" id="btn-' + ck + '" onclick="uploadPendingPdi(\'' + session.machineNumber.replace(/'/g, "\\'") + '\')">Upload</button>' +
+      '<div class="alert" id="alert-' + ck + '"></div>';
+    container.appendChild(card);
+  });
+}
+
+async function uploadPendingPdi(machineNumber) {
+  const ck = "pdiupload_" + machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
+  const btn = document.getElementById("btn-" + ck);
+  const alertEl = document.getElementById("alert-" + ck);
+  hideAlert(alertEl);
+
+  const raw = localStorage.getItem("pdi_offline_progress_" + machineNumber);
+  if (!raw) { loadPdiPendingUploads(); return; }
+  let session;
+  try { session = JSON.parse(raw); } catch (e) { loadPdiPendingUploads(); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await uploadOfflinePdiSession(session, "Uploading " + machineNumber + "...");
+    if (data.success) {
+      showToast(machineNumber + " uploaded and removed from this device.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      loadPdiPendingUploads();
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+      btn.disabled = false; btn.innerHTML = "Upload";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
+    btn.disabled = false; btn.innerHTML = "Upload";
+  }
 }
 
 // ---- Machine Details (only reachable now via the "Add Machine Details" module) ----
@@ -1440,10 +1508,12 @@ function resetTaskAdminScreen() {
   if (b) { b.classList.remove("show"); b.textContent = ""; }
   document.getElementById("task-admin-machine-card").style.display = "block";
   document.getElementById("btn-task-admin-open").style.display = "block";
+  document.getElementById("task-admin-pending-section").style.display = "block";
   document.getElementById("task-admin-offline-view").style.display = "none";
   document.getElementById("task-admin-post-save").style.display = "none";
   document.getElementById("btn-task-admin-save").style.display = "block";
   document.getElementById("task-admin-search-bar").value = "";
+  loadTaskAdminPendingTransfers();
   hideAlert(document.getElementById("alert-task-admin-select"));
   hideAlert(document.getElementById("alert-task-admin-save"));
 }
@@ -1451,6 +1521,63 @@ function resetTaskAdminScreen() {
 function taskAdminAnotherMachine() {
   resetTaskAdminScreen();
   showScreen("screen-task-admin");
+}
+
+// ---- "Transfer Pending" widgets: locally-filled Task Admin data sitting on this device ----
+function loadTaskAdminPendingTransfers() {
+  const container = document.getElementById("taskadmin-pending-list");
+  const countEl = document.getElementById("taskadmin-pending-count");
+  container.innerHTML = "";
+
+  const pending = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || key.indexOf("taskadmin_offline_") !== 0) continue;
+    try {
+      const session = JSON.parse(localStorage.getItem(key));
+      if (session && buildTaskAdminSectionsData(session).length > 0) pending.push(session);
+    } catch (e) { /* skip corrupted entry */ }
+  }
+
+  countEl.textContent = pending.length === 0 ? "Nothing waiting to transfer." : pending.length + " machine(s) ready";
+  pending.forEach(session => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    const ck = "taupload_" + session.machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
+    card.innerHTML = '<div class="task-title">' + escHtml(session.machineNumber) + '</div>' +
+      '<div class="task-sub" style="color:var(--warning)">Transfer Pending \u2014 filled offline, not yet transferred</div>' +
+      '<button class="btn btn-success" style="margin-top:10px" id="btn-' + ck + '" onclick="transferPendingTaskAdmin(\'' + session.machineNumber.replace(/'/g, "\\'") + '\')">Transfer</button>' +
+      '<div class="alert" id="alert-' + ck + '"></div>';
+    container.appendChild(card);
+  });
+}
+
+async function transferPendingTaskAdmin(machineNumber) {
+  const ck = "taupload_" + machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
+  const btn = document.getElementById("btn-" + ck);
+  const alertEl = document.getElementById("alert-" + ck);
+  hideAlert(alertEl);
+
+  const raw = localStorage.getItem("taskadmin_offline_" + machineNumber);
+  if (!raw) { loadTaskAdminPendingTransfers(); return; }
+  let session;
+  try { session = JSON.parse(raw); } catch (e) { loadTaskAdminPendingTransfers(); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Transferring...';
+  try {
+    const data = await uploadTaskAdminSession(session, "Transferring " + machineNumber + "...");
+    if (data.success) {
+      showToast(machineNumber + " transferred and removed from this device.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      loadTaskAdminPendingTransfers();
+    } else {
+      showAlert(alertEl, "error", data.error || "Transfer failed.");
+      btn.disabled = false; btn.innerHTML = "Transfer";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Transfer failed - check your internet connection: " + e.message);
+    btn.disabled = false; btn.innerHTML = "Transfer";
+  }
 }
 
 // Fired automatically in the background whenever a Machine Number is picked,
@@ -1517,6 +1644,7 @@ function saveTaskAdminSessionToStorage() {
 function showTaskAdminOfflineView() {
   document.getElementById("task-admin-machine-card").style.display = "none";
   document.getElementById("btn-task-admin-open").style.display = "none";
+  document.getElementById("task-admin-pending-section").style.display = "none";
   document.getElementById("task-admin-offline-view").style.display = "block";
   document.getElementById("task-admin-machine-label").textContent = "Machine: " + taskAdminSession.machineNumber;
   document.getElementById("task-admin-search-bar").value = "";
@@ -1587,31 +1715,43 @@ function toggleTaskAdminOption(key, option, isChecked) {
   saveTaskAdminSessionToStorage();
 }
 
+function buildTaskAdminSectionsData(session) {
+  return session.sections.map(sectionEntry => {
+    const pages = sectionEntry.pages.map(page => ({
+      page: page.pageName,
+      options: session.selections[taskAdminWidgetKey(sectionEntry.section, page.pageName)] || []
+    })).filter(p => p.options.length > 0);
+    return { section: sectionEntry.section, pages: pages };
+  }).filter(s => s.pages.length > 0);
+}
+
+// Core upload logic, usable both from inside the active offline-editing screen
+// and from a "Transfer Pending" widget without navigating into that screen at
+// all. Always deletes the local data for that machine on success.
+async function uploadTaskAdminSession(session, onProgressLabel) {
+  const sectionsData = buildTaskAdminSectionsData(session);
+  if (sectionsData.length === 0) return { success: false, error: "No options selected for this machine." };
+  const data = await callApiWithProgress("uploadTaskAdminData", {
+    pdiSpreadsheetId: session.pdiSpreadsheetId, username: currentUser,
+    machineNumber: session.machineNumber, sectionsData: sectionsData
+  }, onProgressLabel || "Uploading tasks...", 90);
+  if (data.success) {
+    localStorage.removeItem("taskadmin_offline_" + session.machineNumber);
+  }
+  return data;
+}
+
 async function uploadTaskAdminData() {
   const alertEl = document.getElementById("alert-task-admin-save");
   const btn = document.getElementById("btn-task-admin-save");
   hideAlert(alertEl);
 
-  const sectionsData = taskAdminSession.sections.map(sectionEntry => {
-    const pages = sectionEntry.pages.map(page => ({
-      page: page.pageName,
-      options: taskAdminSession.selections[taskAdminWidgetKey(sectionEntry.section, page.pageName)] || []
-    })).filter(p => p.options.length > 0);
-    return { section: sectionEntry.section, pages: pages };
-  }).filter(s => s.pages.length > 0);
-
-  if (sectionsData.length === 0) { showAlert(alertEl, "error", "Please select at least one option."); return; }
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
   try {
-    const data = await callApiWithProgress("uploadTaskAdminData", {
-      pdiSpreadsheetId: taskAdminSession.pdiSpreadsheetId, username: currentUser,
-      machineNumber: taskAdminSession.machineNumber, sectionsData: sectionsData
-    }, "Uploading tasks...", 90);
+    const data = await uploadTaskAdminSession(taskAdminSession, "Uploading tasks...");
     if (data.success) {
       showAlert(alertEl, "success", data.savedCount + " item(s) saved and auto-approved.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      localStorage.removeItem("taskadmin_offline_" + taskAdminSession.machineNumber);
       btn.style.display = "none";
       document.getElementById("task-admin-post-save").style.display = "block";
     } else {
@@ -1817,32 +1957,46 @@ function exitOfflinePdi() {
   goHome();
 }
 
+function buildOfflinePdiSectionsData(session) {
+  return session.sectionsQueue.map(section => {
+    const pages = session.allSectionsData[section] || [];
+    const pageData = pages.map((p, idx) => ({
+      page: p.pageName,
+      options: (session.selections[section] && session.selections[section][idx]) || []
+    }));
+    return { section: section, pages: pageData };
+  });
+}
+
+// Core upload logic, usable both from inside the active offline-editing screen
+// and from a "Ready to Upload" widget without navigating into that screen at all.
+// Always deletes the local data for that machine on success - nothing uploaded
+// stays on the device afterward.
+async function uploadOfflinePdiSession(session, onProgressLabel) {
+  const sectionsData = buildOfflinePdiSectionsData(session);
+  const data = await callApiWithProgress("uploadOfflinePdi", {
+    pdiSpreadsheetId: session.pdiSpreadsheetId, username: currentUser,
+    machineNumber: session.machineNumber, sectionsData: sectionsData
+  }, onProgressLabel || "Uploading PDI...", 90);
+  if (data.success) {
+    localStorage.removeItem("pdi_offline_progress_" + session.machineNumber);
+    localStorage.removeItem("pdi_cache_" + session.machineNumber);
+  }
+  return data;
+}
+
 async function uploadOfflinePdi() {
   const alertEl = document.getElementById("alert-offline-upload");
   const btn = document.getElementById("btn-offline-upload");
   hideAlert(alertEl);
 
-  const sectionsData = offlineSession.sectionsQueue.map(section => {
-    const pages = offlineSession.allSectionsData[section] || [];
-    const pageData = pages.map((p, idx) => ({
-      page: p.pageName,
-      options: (offlineSession.selections[section] && offlineSession.selections[section][idx]) || []
-    }));
-    return { section: section, pages: pageData };
-  });
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
   try {
-    const data = await callApiWithProgress("uploadOfflinePdi", {
-      pdiSpreadsheetId: offlineSession.pdiSpreadsheetId, username: currentUser,
-      machineNumber: offlineSession.machineNumber, sectionsData: sectionsData
-    }, "Uploading PDI...", 90);
+    const data = await uploadOfflinePdiSession(offlineSession, "Uploading PDI...");
     if (data.success) {
       const summary = (data.results || []).map(r => r.section + ": " + r.status).join(", ");
       showAlert(alertEl, "success", "Upload complete. " + summary);
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      localStorage.removeItem("pdi_offline_progress_" + offlineSession.machineNumber);
-      localStorage.removeItem("pdi_cache_" + offlineSession.machineNumber);
       btn.style.display = "none";
       document.getElementById("offline-post-upload").style.display = "block";
     } else {
@@ -2069,9 +2223,9 @@ async function saveWidgetCompletion(key) {
   const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
   if (!widget) return;
   const selectedSet = taskCompleteSelections[key] || new Set();
+
   if (selectedSet.size === 0) {
-    showAlert(alertEl, "error", "Please select at least one option to mark completed.");
-    return;
+    if (!confirm("No options are checked - this will mark the whole task as NOT completed and send it back to Assign Task for reassignment. Continue?")) return;
   }
 
   showBusyOverlay();
@@ -2082,8 +2236,8 @@ async function saveWidgetCompletion(key) {
       allRowIndexesInWidget: widget.items.map(i => i.rowIndex)
     });
     if (data.success) {
-      let msg = data.completedCount + " option(s) marked completed.";
-      if (data.reopenedCount > 0) msg += " " + data.reopenedCount + " unselected option(s) sent back to Assign Task.";
+      let msg = data.completedCount > 0 ? (data.completedCount + " option(s) marked completed.") : "No options completed.";
+      if (data.reopenedCount > 0) msg += " " + data.reopenedCount + " option(s) sent back to Assign Task.";
       showToast(msg);
       allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
       filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
