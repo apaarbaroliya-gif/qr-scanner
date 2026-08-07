@@ -105,6 +105,10 @@
   .progress-stats { font-size: 12px; color: var(--muted); margin-top: 10px; }
   .floating-save-btn { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 448px;
     margin: 0 auto; z-index: 90; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  #refresh-fab { position: fixed; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent); color: #1a1a1a; border: none; font-size: 18px; z-index: 95;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; }
+  #refresh-fab.show { display:flex; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -546,6 +550,7 @@
 
 </div>
 <div id="toast"></div>
+<button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
 <div id="busy-overlay"><div class="busy-spinner"></div></div>
 <div id="progress-overlay">
   <div class="progress-box">
@@ -764,10 +769,40 @@ function hideBusyOverlay() {
 // ============================================================
 // NAVIGATION
 // ============================================================
+// Maps each screen to the function(s) that should re-fetch its data when the
+// user presses the floating Refresh button. Screens not listed here just get
+// the dropdown data refreshed (still useful) but have nothing else to redo.
+const SCREEN_REFRESH_FUNCTIONS = {
+  "screen-home": () => syncSessionWithServer(),
+  "screen-pdi-select": () => { loadUncompletedPdiList(true); loadPdiPendingUploads(); },
+  "screen-task-admin": () => loadTaskAdminPendingTransfers(),
+  "screen-task-list": () => loadTaskWidgets(true)
+};
+let currentScreenRefreshFn = null;
+
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   window.scrollTo(0, 0);
+  currentScreenRefreshFn = SCREEN_REFRESH_FUNCTIONS[id] || null;
+  const fab = document.getElementById("refresh-fab");
+  if (id === "screen-login" || id === "screen-register") fab.classList.remove("show");
+  else fab.classList.add("show");
+}
+
+async function refreshAppData() {
+  showBusyOverlay();
+  try {
+    await loadDropdownData(true);
+    if (typeof currentScreenRefreshFn === "function") {
+      await currentScreenRefreshFn();
+    }
+    showToast("Refreshed.");
+  } catch (e) {
+    showToast("Refresh failed - check your connection.");
+  } finally {
+    hideBusyOverlay();
+  }
 }
 
 function goHome() {
@@ -860,17 +895,14 @@ function logout() {
 // DROPDOWN DATA
 // ============================================================
 let dropdownDataLoadedAt = 0;
-const DROPDOWN_DATA_TTL_MS = 10 * 60 * 1000; // 10 minutes - reuse cached data across module switches within this window
+const DROPDOWN_DATA_TTL_MS = 60 * 60 * 1000; // 60 minutes - refresh is now primarily via the manual Refresh button
 
 async function loadDropdownData(force) {
-  // Skip the network round trip if we already have reasonably fresh data -
-  // this is the single biggest speed win, since every module open used to
-  // re-fetch the entire Dropdown sheet + Employee sheet every single time.
   if (!force && dropdownDataLoadedAt && (Date.now() - dropdownDataLoadedAt < DROPDOWN_DATA_TTL_MS)) {
     return;
   }
   try {
-    const data = await callApi("getDropdownData", {});
+    const data = await callApi("getDropdownData", { modules: currentModules || [] });
     if (data.success) {
       dropdownData = data;
       dropdownDataLoadedAt = Date.now();
@@ -880,8 +912,6 @@ async function loadDropdownData(force) {
       showToast("Could not load dropdown data: " + (data.error || "unknown error"));
     }
   } catch (e) {
-    // Only surface this if we have no data at all yet - otherwise keep using
-    // whatever was already cached rather than nagging on every failed refresh.
     if (!dropdownDataLoadedAt) {
       showToast("Could not connect to server - machine lists may be empty. Try reopening this module.");
     }
@@ -1307,28 +1337,45 @@ function resetPdiSelectScreen() {
 // Machine PDI's Machine Number field only lists machines that already have
 // Machine Details on file.
 // ---- Uncompleted PDI widgets ----
-async function loadUncompletedPdiList() {
+let uncompletedPdiCache = null; // { items, loadedAt }
+const UNCOMPLETED_PDI_TTL_MS = 60 * 60 * 1000;
+
+function renderUncompletedPdiList(items) {
   const container = document.getElementById("uncompleted-pdi-list");
   const countEl = document.getElementById("uncompleted-pdi-count");
+  container.innerHTML = "";
+  countEl.textContent = items.length === 0 ? "No uncompleted PDIs right now." : items.length + " machine(s) in progress";
+  items.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    const d = item.machineDetails;
+    const detailsLine = d ? ("Serial: " + escHtml(d.serialNumber) + "  |  YOM: " + escHtml(d.yom) + "  |  HP: " + escHtml(d.hp) + "  |  HMR: " + escHtml(d.hmr))
+      : "No Machine Details on file";
+    card.innerHTML = '<div class="task-title">' + escHtml(item.machineNumber) + '</div>' +
+      '<div class="task-sub">' + detailsLine + '</div>' +
+      '<div class="task-meta">' + item.doneCount + ' of ' + item.totalSections + ' sections done</div>' +
+      '<button class="btn btn-outline" style="margin-top:10px" onclick="continueUncompletedPdi(\'' + item.machineNumber.replace(/'/g, "\\'") + '\')">Continue</button>';
+    container.appendChild(card);
+  });
+}
+
+async function loadUncompletedPdiList(force) {
+  const countEl = document.getElementById("uncompleted-pdi-count");
+
+  if (!force && uncompletedPdiCache && (Date.now() - uncompletedPdiCache.loadedAt < UNCOMPLETED_PDI_TTL_MS)) {
+    renderUncompletedPdiList(uncompletedPdiCache.items);
+    return;
+  }
+
+  const container = document.getElementById("uncompleted-pdi-list");
   container.innerHTML = "";
   countEl.textContent = "Loading...";
   try {
     const data = await callApi("getUncompletedPdiList", { machineType: DEFAULT_MACHINE_TYPE });
     if (data.success) {
       const items = data.items || [];
-      countEl.textContent = items.length === 0 ? "No uncompleted PDIs right now." : items.length + " machine(s) in progress";
-      items.forEach(item => {
-        const card = document.createElement("div");
-        card.className = "task-card";
-        const d = item.machineDetails;
-        const detailsLine = d ? ("Serial: " + escHtml(d.serialNumber) + "  |  YOM: " + escHtml(d.yom) + "  |  HP: " + escHtml(d.hp) + "  |  HMR: " + escHtml(d.hmr))
-          : "No Machine Details on file";
-        card.innerHTML = '<div class="task-title">' + escHtml(item.machineNumber) + '</div>' +
-          '<div class="task-sub">' + detailsLine + '</div>' +
-          '<div class="task-meta">' + item.doneCount + ' of ' + item.totalSections + ' sections done</div>' +
-          '<button class="btn btn-outline" style="margin-top:10px" onclick="continueUncompletedPdi(\'' + item.machineNumber.replace(/'/g, "\\'") + '\')">Continue</button>';
-        container.appendChild(card);
-      });
+      uncompletedPdiCache = { items: items, loadedAt: Date.now() };
+      renderUncompletedPdiList(items);
     } else {
       countEl.textContent = "";
       container.innerHTML = '<p style="color:var(--muted);font-size:13px">' + escHtml(data.error || "Could not load list.") + '</p>';
@@ -2027,7 +2074,10 @@ function resetTaskManagerState() {
   });
 }
 
-async function loadTaskWidgets() {
+const taskWidgetsCache = {}; // { assign: {widgets, pdiSpreadsheetId, loadedAt}, complete: {...}, approve: {...} }
+const TASK_WIDGETS_TTL_MS = 60 * 60 * 1000; // 60 minutes - same manual-refresh-first policy as dropdown data
+
+async function loadTaskWidgets(force) {
   const alertEl = document.getElementById("alert-task-list");
   hideAlert(alertEl);
   resetTaskManagerState();
@@ -2035,9 +2085,19 @@ async function loadTaskWidgets() {
   const titles = { assign: "Assign Task", complete: "Mark Task as Completed", approve: "Approve Task" };
   document.getElementById("task-list-title").textContent = titles[taskMode];
   document.getElementById("task-filter-panel").classList.remove("open");
+  document.getElementById("btn-load-more-tasks").style.display = "none";
+
+  const cached = taskWidgetsCache[taskMode];
+  if (!force && cached && (Date.now() - cached.loadedAt < TASK_WIDGETS_TTL_MS)) {
+    taskSpreadsheetId = cached.pdiSpreadsheetId;
+    allTaskWidgets = cached.widgets;
+    buildTaskFilterOptions();
+    applyTaskFilters();
+    return;
+  }
+
   document.getElementById("task-count-text").textContent = "Loading tasks...";
   document.getElementById("task-list-container").innerHTML = "";
-  document.getElementById("btn-load-more-tasks").style.display = "none";
 
   const action = taskMode === "assign" ? "getAssignTaskWidgets" : taskMode === "complete" ? "getCompleteTaskWidgets" : "getApproveTaskWidgets";
   try {
@@ -2045,6 +2105,7 @@ async function loadTaskWidgets() {
     if (data.success) {
       taskSpreadsheetId = data.pdiSpreadsheetId;
       allTaskWidgets = data.widgets || [];
+      taskWidgetsCache[taskMode] = { widgets: allTaskWidgets, pdiSpreadsheetId: taskSpreadsheetId, loadedAt: Date.now() };
       buildTaskFilterOptions();
       applyTaskFilters();
     } else {
@@ -2099,6 +2160,15 @@ function loadMoreTasks() {
 }
 
 function widgetKey(w) { return w.machineNumber + "||" + w.section + "||" + w.page; }
+
+// Removes an acted-upon widget from the live lists AND the session cache, so
+// a cache-hit on next visit doesn't show an already-handled task again.
+function removeTaskWidgetEverywhere(key) {
+  allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
+  filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+  const cached = taskWidgetsCache[taskMode];
+  if (cached) cached.widgets = cached.widgets.filter(w => widgetKey(w) !== key);
+}
 
 function renderTaskWidgets() {
   hideAlert(document.getElementById("alert-task-list"));
@@ -2203,8 +2273,7 @@ async function saveWidgetAssignment(key) {
     const data = await callApi("assignTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes, employees: employees });
     if (data.success) {
       showToast("Task assigned.");
-      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
-      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      removeTaskWidgetEverywhere(key);
       expandedWidgetKey = null;
       renderTaskWidgets();
     } else {
@@ -2239,8 +2308,7 @@ async function saveWidgetCompletion(key) {
       let msg = data.completedCount > 0 ? (data.completedCount + " option(s) marked completed.") : "No options completed.";
       if (data.reopenedCount > 0) msg += " " + data.reopenedCount + " option(s) sent back to Assign Task.";
       showToast(msg);
-      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
-      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      removeTaskWidgetEverywhere(key);
       delete taskCompleteSelections[key];
       renderTaskWidgets();
     } else {
@@ -2264,8 +2332,7 @@ async function approveWidget(key) {
     const data = await callApi("approveTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes });
     if (data.success) {
       showToast(data.approvedCount + " option(s) approved.");
-      allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
-      filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
+      removeTaskWidgetEverywhere(key);
       renderTaskWidgets();
     } else {
       showAlert(alertEl, "error", data.error || "Failed to approve.");
