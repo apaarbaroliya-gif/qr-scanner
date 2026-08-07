@@ -609,6 +609,7 @@ let taskDisplayCount = 20;
 let expandedWidgetKey = null;      // which widget's assign panel is currently open (assign mode)
 let taskAssigneeSelections = {};   // unused now (kept for compat with generic dropdown code path), safe no-op
 let taskCompleteSelections = {};   // { widgetKey: Set(rowIndex) } for Mark Task as Completed checkboxes
+let taskApproveSelections = {};    // { widgetKey: Set(rowIndex) } for Approve Task checkboxes
 let html5QrCode = null;
 let scannerRunning = false;
 let torchOn = false;
@@ -2067,6 +2068,7 @@ function resetTaskManagerState() {
   expandedWidgetKey = null;
   taskAssigneeSelections = {};
   taskCompleteSelections = {};
+  taskApproveSelections = {};
   const mSearch = document.getElementById("taskfiltermachine-search"); if (mSearch) mSearch.value = "";
   const sSearch = document.getElementById("taskfiltersection-search"); if (sSearch) sSearch.value = "";
   ["taskfiltermachine", "taskfiltersection"].forEach(w => {
@@ -2216,10 +2218,8 @@ function renderTaskWidgets() {
       html += '<div id="widget-options-' + cssKey(key) + '"></div>';
       html += '<button class="btn btn-success" style="margin-top:10px" onclick="saveWidgetCompletion(\'' + key.replace(/'/g, "\\'") + '\')">Mark Selected as Completed</button>';
     } else { // approve
-      const options = w.options || [];
-      html += '<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--text)">' +
-        options.map(o => '<li>' + escHtml(o) + '</li>').join("") + '</ul>';
-      html += '<button class="btn btn-success" style="margin-top:10px" onclick="approveWidget(\'' + key.replace(/'/g, "\\'") + '\')">Approve</button>';
+      html += '<div id="widget-approve-opts-' + cssKey(key) + '"></div>';
+      html += '<button class="btn btn-success" style="margin-top:10px" onclick="approveWidget(\'' + key.replace(/'/g, "\\'") + '\')">Approve Selected</button>';
     }
     card.innerHTML = html;
     container.appendChild(card);
@@ -2237,6 +2237,23 @@ function renderTaskWidgets() {
           if (!taskCompleteSelections[key]) taskCompleteSelections[key] = new Set();
           if (e.target.checked) taskCompleteSelections[key].add(item.rowIndex);
           else taskCompleteSelections[key].delete(item.rowIndex);
+        });
+        listEl.appendChild(row);
+      });
+    } else if (taskMode === "approve") {
+      const listEl = card.querySelector("#widget-approve-opts-" + cssKey(key));
+      const options = w.options || [];
+      const rowIndexes = w.rowIndexes || [];
+      options.forEach((opt, idx) => {
+        const rowIndex = rowIndexes[idx];
+        const id = "approve-opt-" + cssKey(key) + "-" + idx;
+        const row = document.createElement("div");
+        row.className = "option-item";
+        row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(opt) + '</label>';
+        row.querySelector("input").addEventListener("change", (e) => {
+          if (!taskApproveSelections[key]) taskApproveSelections[key] = new Set();
+          if (e.target.checked) taskApproveSelections[key].add(rowIndex);
+          else taskApproveSelections[key].delete(rowIndex);
         });
         listEl.appendChild(row);
       });
@@ -2326,12 +2343,24 @@ async function approveWidget(key) {
   hideAlert(alertEl);
   const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
   if (!widget) return;
+  const selectedSet = taskApproveSelections[key] || new Set();
+
+  if (selectedSet.size === 0) {
+    if (!confirm("No options are checked - every option in this task will be marked \"no\" (not approved). Continue?")) return;
+  }
 
   showBusyOverlay();
   try {
-    const data = await callApi("approveTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes });
+    const data = await callApi("approveTaskWidget", {
+      pdiSpreadsheetId: taskSpreadsheetId,
+      approvedRowIndexes: Array.from(selectedSet),
+      allRowIndexesInWidget: widget.rowIndexes
+    });
     if (data.success) {
-      showToast(data.approvedCount + " option(s) approved.");
+      let msg = data.approvedCount > 0 ? (data.approvedCount + " option(s) approved.") : "No options approved.";
+      if (data.rejectedCount > 0) msg += " " + data.rejectedCount + " option(s) marked \"no\".";
+      showToast(msg);
+      delete taskApproveSelections[key];
       removeTaskWidgetEverywhere(key);
       renderTaskWidgets();
     } else {
