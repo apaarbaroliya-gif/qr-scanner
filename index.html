@@ -109,6 +109,14 @@
     background: var(--accent); color: #1a1a1a; border: none; font-size: 18px; z-index: 95;
     box-shadow: 0 2px 10px rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; }
   #refresh-fab.show { display:flex; }
+  .item-photo-thumbs { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .item-photo-thumb { position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  .item-photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .item-photo-thumb .remove-photo-btn { position:absolute; top:2px; right:2px; background:rgba(0,0,0,.7); color:#fff;
+    border:none; border-radius:50%; width:22px; height:22px; font-size:13px; line-height:1; }
+  .item-photo-add-tile { width:84px; height:84px; border-radius:10px; border:1px dashed var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--muted); cursor:pointer; }
+  #item-camera-box video { width:100%; border-radius:12px; background:#000; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
@@ -548,6 +556,103 @@
     </div>
   </div>
 
+  <!-- SCREEN: ITEM DATA -->
+  <div class="screen" id="screen-item-data">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Item Data</span>
+      <button class="btn-outline" style="margin-left:auto;padding:9px 12px" onclick="showScreenAndInit('screen-item-data-update')">Update Info</button>
+    </div>
+
+    <div class="card" id="item-data-entry-card">
+      <label>Item</label>
+      <div class="search-wrap">
+        <input type="text" id="itemdata-item-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('itemdataitem')" onfocus="filterDropdown('itemdataitem')" onblur="onDropdownBlur('itemdataitem')">
+        <div class="search-dropdown" id="itemdataitem-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="itemdataitem-badge"></div>
+
+      <div id="item-data-fields" style="display:none">
+        <label>Rack Number</label>
+        <div class="search-wrap">
+          <input type="text" id="itemdata-rack-search" autocomplete="off" placeholder="Type to search rack..."
+            oninput="filterDropdown('itemdatarack')" onfocus="filterDropdown('itemdatarack')" onblur="onDropdownBlur('itemdatarack')">
+          <div class="search-dropdown" id="itemdatarack-dropdown"></div>
+        </div>
+        <div class="selected-badge" id="itemdatarack-badge"></div>
+
+        <label>Bin Number</label>
+        <input type="number" id="itemdata-bin" min="1" step="1" inputmode="numeric" placeholder="Enter bin number">
+
+        <label>Physical Quantity</label>
+        <input type="number" id="itemdata-qty" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
+
+        <div id="item-data-photo-section" style="display:none">
+          <label style="margin-top:16px">Photos <span style="color:var(--muted)">(new item - up to 3)</span></label>
+          <div class="item-photo-thumbs" id="item-data-photo-thumbs"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="item-camera-permission-prompt" style="display:none;text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">&#128247;</div>
+      <h4>Camera Permission Required</h4>
+      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and take a photo.</p>
+      <button class="btn btn-primary" onclick="startItemDataCamera()">Allow Camera Access</button>
+    </div>
+    <div class="card" id="item-camera-error-box" style="display:none;text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">&#128683;</div>
+      <h4>Camera Blocked</h4>
+      <p style="color:var(--muted);font-size:13px">Enable camera permission for this site in your browser, then try again.</p>
+      <button class="btn btn-primary" onclick="startItemDataCamera()">Try Again</button>
+      <button class="link-btn" onclick="cancelItemDataCamera()">Cancel</button>
+    </div>
+    <div id="item-camera-box" style="display:none">
+      <video id="item-camera-video" autoplay playsinline muted></video>
+      <div class="scan-btn-row" style="margin-top:10px">
+        <button class="btn btn-primary" onclick="captureItemDataPhoto()">Capture</button>
+        <button class="btn btn-outline" onclick="cancelItemDataCamera()">Cancel</button>
+      </div>
+    </div>
+
+    <button class="btn btn-success" id="btn-item-data-save" style="display:none" onclick="saveItemDataLocally()">Save Locally</button>
+    <div class="alert" id="alert-item-data"></div>
+    <div id="item-data-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetItemDataEntryForm()">Add Another Item</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+
+    <h4 style="margin-top:24px;margin-bottom:6px">Pending on This Device</h4>
+    <div class="task-count-text" id="item-data-pending-count" style="margin:0 0 8px"></div>
+    <div id="item-data-pending-list"></div>
+  </div>
+
+  <!-- SCREEN: ITEM DATA - UPDATE INFO -->
+  <div class="screen" id="screen-item-data-update">
+    <div class="topbar">
+      <button class="btn-outline" onclick="showScreenAndInit('screen-item-data')">&larr; Back</button>
+      <span class="page-title">Update Info</span>
+    </div>
+    <div class="card">
+      <label>Item</label>
+      <div class="search-wrap">
+        <input type="text" id="itemupdate-item-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('itemupdateitem')" onfocus="filterDropdown('itemupdateitem')" onblur="onDropdownBlur('itemupdateitem')">
+        <div class="search-dropdown" id="itemupdateitem-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="itemupdateitem-badge"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-item-update-load" onclick="loadItemPhotosForUpdate()">Load Photos</button>
+    <div class="alert" id="alert-item-update"></div>
+
+    <div id="item-update-results" style="display:none">
+      <div class="task-count-text" id="item-update-count"></div>
+      <div class="item-photo-thumbs" id="item-update-thumbs"></div>
+      <div class="alert" id="alert-item-update-action" style="margin-top:10px"></div>
+    </div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
@@ -600,6 +705,13 @@ let pdiViewerItems = [];
 // Purchase Order state
 let selectedPoItem = "";
 
+// Item Data state
+let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "";
+let itemDataItemHasPhotos = false;
+let itemDataCapturedPhotos = []; // [{base64, mimeType}] for the item currently being entered
+let itemDataCameraCaptureMode = "entry"; // "entry" (save locally) or "update" (upload immediately)
+const ITEM_DATA_MAX_PENDING = 5;
+
 // Task Manager (Assign Task / Mark Task as Completed) state
 let taskMode = "";              // "assign" or "complete"
 let taskMachineType = "", taskSpreadsheetId = "";
@@ -626,7 +738,8 @@ const MODULE_META = {
   "Assign Task": { icon: "&#128204;", desc: "Assign approved tasks to employees" },
   "Mark Task as Completed": { icon: "&#127919;", desc: "Close out assigned tasks" },
   "PDI Viewer": { icon: "&#128196;", desc: "View and export a machine's full PDI" },
-  "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" }
+  "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" },
+  "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" }
 };
 
 // ============================================================
@@ -777,7 +890,8 @@ const SCREEN_REFRESH_FUNCTIONS = {
   "screen-home": () => syncSessionWithServer(),
   "screen-pdi-select": () => { loadUncompletedPdiList(true); loadPdiPendingUploads(); },
   "screen-task-admin": () => loadTaskAdminPendingTransfers(),
-  "screen-task-list": () => loadTaskWidgets(true)
+  "screen-task-list": () => loadTaskWidgets(true),
+  "screen-item-data": () => loadItemDataPendingList()
 };
 let currentScreenRefreshFn = null;
 
@@ -789,6 +903,17 @@ function showScreen(id) {
   const fab = document.getElementById("refresh-fab");
   if (id === "screen-login" || id === "screen-register") fab.classList.remove("show");
   else fab.classList.add("show");
+}
+
+// Used for in-module navigation (e.g. Item Data <-> Update Info) that needs
+// a reset call, without going through openModule/goHome.
+const SCREEN_INIT_FUNCTIONS = {
+  "screen-item-data": resetItemDataScreen,
+  "screen-item-data-update": resetItemUpdateScreen
+};
+function showScreenAndInit(id) {
+  if (typeof SCREEN_INIT_FUNCTIONS[id] === "function") SCREEN_INIT_FUNCTIONS[id]();
+  showScreen(id);
 }
 
 async function refreshAppData() {
@@ -997,6 +1122,10 @@ async function openModule(mod) {
     await loadStockItems();
     resetPurchaseOrderScreen();
     showScreen("screen-purchase-order");
+  } else if (mod === "Item Data") {
+    await loadDropdownData();
+    resetItemDataScreen();
+    showScreen("screen-item-data");
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -1017,7 +1146,9 @@ function filterDropdown(which) {
   const isPoItem = which === "poitem";
   const isPdiMachine = which === "pdimachine";       // Machine PDI: only machines WITH details
   const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
-  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem;
+  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem";
+  const isItemDataRack = which === "itemdatarack";
+  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack;
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -1032,9 +1163,10 @@ function filterDropdown(which) {
     : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
     : isPoItem ? (dropdownData.stockItems || [])
     : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
+    : isItemDataItem ? (dropdownData.partItems || []) : isItemDataRack ? (dropdownData.rackNumbers || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
   const noResultsLabel = isEmployee ? "No employees found"
-    : (isTaskFilterMachine || isTaskFilterSection || isPoItem) ? "No matches found" : "No machines found";
+    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
     if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -1080,6 +1212,9 @@ function selectDropdownValue(which, m) {
   else if (which === "taskfiltersection") selectedTaskFilterSection = m;
   else if (which === "viewermachine") selectedViewerMachine = m;
   else if (which === "poitem") selectedPoItem = m;
+  else if (which === "itemdataitem") { selectedItemDataItem = m; onItemDataItemSelected(); }
+  else if (which === "itemdatarack") selectedItemDataRack = m;
+  else if (which === "itemupdateitem") selectedItemUpdateItem = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -1092,7 +1227,8 @@ function selectDropdownValue(which, m) {
 function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
   selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem"].forEach(which => {
+  selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -2497,6 +2633,392 @@ async function submitPurchaseOrder() {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
     btn.disabled = false; btn.innerHTML = "Submit";
+    hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// ITEM DATA (offline: item photos via Drive, location/quantity tracker)
+// ============================================================
+
+// ---- IndexedDB (photos are too large for localStorage) ----
+const ITEMDATA_DB_NAME = "ItemDataOfflineDB";
+const ITEMDATA_STORE = "pendingItems";
+
+function openItemDataDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(ITEMDATA_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(ITEMDATA_STORE)) {
+        db.createObjectStore(ITEMDATA_STORE, { keyPath: "localId" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAllPendingItems() {
+  return openItemDataDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(ITEMDATA_STORE, "readonly");
+    const req = tx.objectStore(ITEMDATA_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function idbSavePendingItem(record) {
+  return openItemDataDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(ITEMDATA_STORE, "readwrite");
+    tx.objectStore(ITEMDATA_STORE).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function idbDeletePendingItem(localId) {
+  return openItemDataDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(ITEMDATA_STORE, "readwrite");
+    tx.objectStore(ITEMDATA_STORE).delete(localId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+// ---- Main entry screen ----
+function resetItemDataScreen() {
+  resetDropdownSelections();
+  selectedItemDataItem = ""; selectedItemDataRack = ""; itemDataItemHasPhotos = false;
+  itemDataCapturedPhotos = [];
+  document.getElementById("itemdata-item-search").value = "";
+  const b = document.getElementById("itemdataitem-badge");
+  if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("item-data-fields").style.display = "none";
+  document.getElementById("item-data-photo-section").style.display = "none";
+  document.getElementById("btn-item-data-save").style.display = "none";
+  document.getElementById("item-data-post-save").style.display = "none";
+  document.getElementById("item-data-entry-card").style.display = "block";
+  cancelItemDataCamera();
+  hideAlert(document.getElementById("alert-item-data"));
+  loadItemDataPendingList();
+}
+
+function resetItemDataEntryForm() {
+  resetItemDataScreen();
+}
+
+async function onItemDataItemSelected() {
+  const alertEl = document.getElementById("alert-item-data");
+  hideAlert(alertEl);
+  document.getElementById("item-data-fields").style.display = "none";
+  itemDataCapturedPhotos = [];
+
+  try {
+    const data = await callApi("checkItemHasPhotos", { itemName: selectedItemDataItem });
+    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not check this item."); return; }
+    itemDataItemHasPhotos = !!data.hasPhotos;
+    document.getElementById("item-data-fields").style.display = "block";
+    document.getElementById("item-data-photo-section").style.display = itemDataItemHasPhotos ? "none" : "block";
+    renderItemDataPhotoThumbnails();
+    document.getElementById("btn-item-data-save").style.display = "block";
+
+    // Pre-fill with existing values, if any (a refill of an existing item)
+    if (data.existing) {
+      document.getElementById("itemdata-bin").value = data.existing.binNumber || "";
+      document.getElementById("itemdata-qty").value = data.existing.physicalQuantity || "";
+      if (data.existing.rackNumber) {
+        selectedItemDataRack = data.existing.rackNumber;
+        document.getElementById("itemdata-rack-search").value = data.existing.rackNumber;
+        const rb = document.getElementById("itemdatarack-badge");
+        rb.textContent = "Selected: " + data.existing.rackNumber; rb.classList.add("show");
+      }
+    } else {
+      document.getElementById("itemdata-bin").value = "";
+      document.getElementById("itemdata-qty").value = "";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+// ---- Camera capture (live camera only, no gallery - compressed before storing) ----
+let itemDataCameraStream = null;
+
+async function startItemDataCamera() {
+  document.getElementById("item-camera-permission-prompt").style.display = "none";
+  document.getElementById("item-camera-error-box").style.display = "none";
+  try {
+    itemDataCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const video = document.getElementById("item-camera-video");
+    video.srcObject = itemDataCameraStream;
+    document.getElementById("item-camera-box").style.display = "block";
+  } catch (e) {
+    document.getElementById("item-camera-error-box").style.display = "block";
+  }
+}
+
+function openItemDataCameraPrompt() {
+  if (itemDataCapturedPhotos.length >= 3) { showToast("Maximum 3 photos."); return; }
+  itemDataCameraCaptureMode = "entry";
+  document.getElementById("item-camera-permission-prompt").style.display = "block";
+}
+
+function cancelItemDataCamera() {
+  if (itemDataCameraStream) {
+    itemDataCameraStream.getTracks().forEach(t => t.stop());
+    itemDataCameraStream = null;
+  }
+  document.getElementById("item-camera-box").style.display = "none";
+  document.getElementById("item-camera-permission-prompt").style.display = "none";
+  document.getElementById("item-camera-error-box").style.display = "none";
+}
+
+function captureItemDataPhoto() {
+  const video = document.getElementById("item-camera-video");
+  const maxDim = 1280;
+  let w = video.videoWidth, h = video.videoHeight;
+  if (w > maxDim || h > maxDim) {
+    if (w > h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+    else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.75); // compressed - keeps local storage + upload light
+  const base64 = dataUrl.split(",")[1];
+  cancelItemDataCamera(); // stop the camera stream immediately either way
+
+  if (itemDataCameraCaptureMode === "update") {
+    itemDataCapturedPhotos = [{ base64: base64, mimeType: "image/jpeg", dataUrl: dataUrl }];
+    uploadCapturedUpdatePhoto();
+    itemDataCameraCaptureMode = "entry";
+    return;
+  }
+
+  itemDataCapturedPhotos.push({ base64: base64, mimeType: "image/jpeg", dataUrl: dataUrl });
+  renderItemDataPhotoThumbnails();
+}
+
+function removeItemDataPhoto(idx) {
+  itemDataCapturedPhotos.splice(idx, 1);
+  renderItemDataPhotoThumbnails();
+}
+
+function renderItemDataPhotoThumbnails() {
+  const container = document.getElementById("item-data-photo-thumbs");
+  container.innerHTML = "";
+  itemDataCapturedPhotos.forEach((p, idx) => {
+    const div = document.createElement("div");
+    div.className = "item-photo-thumb";
+    div.innerHTML = '<img src="' + p.dataUrl + '"><button type="button" class="remove-photo-btn" onclick="removeItemDataPhoto(' + idx + ')">&times;</button>';
+    container.appendChild(div);
+  });
+  if (itemDataCapturedPhotos.length < 3) {
+    const addTile = document.createElement("div");
+    addTile.className = "item-photo-add-tile";
+    addTile.textContent = "+";
+    addTile.onclick = openItemDataCameraPrompt;
+    container.appendChild(addTile);
+  }
+}
+
+// ---- Save locally (IndexedDB), respecting the 5-item cap ----
+async function saveItemDataLocally() {
+  const alertEl = document.getElementById("alert-item-data");
+  hideAlert(alertEl);
+
+  if (!selectedItemDataItem) { showAlert(alertEl, "error", "Please select an Item."); return; }
+  if (!selectedItemDataRack) { showAlert(alertEl, "error", "Please select a Rack Number."); return; }
+  const bin = document.getElementById("itemdata-bin").value;
+  const qty = document.getElementById("itemdata-qty").value;
+  if (!bin || !/^\d+$/.test(bin) || parseInt(bin, 10) < 1) { showAlert(alertEl, "error", "Bin Number must be a positive whole number."); return; }
+  if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
+
+  const pending = await idbGetAllPendingItems();
+  if (pending.length >= ITEM_DATA_MAX_PENDING) {
+    showAlert(alertEl, "error", "You already have " + ITEM_DATA_MAX_PENDING + " item(s) waiting to upload. Upload at least one before adding more.");
+    return;
+  }
+
+  const record = {
+    localId: "item_" + Date.now(),
+    itemName: selectedItemDataItem,
+    rackNumber: selectedItemDataRack,
+    binNumber: bin,
+    physicalQuantity: qty,
+    photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType })),
+    photoCount: itemDataCapturedPhotos.length,
+    createdAt: Date.now()
+  };
+
+  try {
+    await idbSavePendingItem(record);
+    showToast("Saved on this device.");
+    if (navigator.vibrate) navigator.vibrate(100);
+    document.getElementById("item-data-entry-card").style.display = "none";
+    document.getElementById("item-camera-box").style.display = "none";
+    document.getElementById("btn-item-data-save").style.display = "none";
+    document.getElementById("item-data-post-save").style.display = "block";
+    loadItemDataPendingList();
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not save locally: " + e.message);
+  }
+}
+
+// ---- Pending widgets list ----
+async function loadItemDataPendingList() {
+  const container = document.getElementById("item-data-pending-list");
+  const countEl = document.getElementById("item-data-pending-count");
+  container.innerHTML = "";
+
+  let pending = [];
+  try { pending = await idbGetAllPendingItems(); } catch (e) { /* IndexedDB unavailable - list stays empty */ }
+
+  countEl.textContent = pending.length === 0 ? "Nothing waiting to upload." : pending.length + " of " + ITEM_DATA_MAX_PENDING + " slot(s) used";
+  pending.forEach(record => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
+      '<div class="task-sub">Rack: ' + escHtml(record.rackNumber) + '  |  Bin: ' + escHtml(record.binNumber) + '  |  Qty: ' + escHtml(record.physicalQuantity) + '</div>' +
+      '<div class="task-meta">' + record.photoCount + ' photo(s) attached</div>' +
+      '<button class="btn btn-success" style="margin-top:10px" id="btn-itemupload-' + record.localId + '" onclick="uploadPendingItemData(\'' + record.localId + '\')">Upload</button>' +
+      '<div class="alert" id="alert-itemupload-' + record.localId + '"></div>';
+    container.appendChild(card);
+  });
+}
+
+async function uploadPendingItemData(localId) {
+  const btn = document.getElementById("btn-itemupload-" + localId);
+  const alertEl = document.getElementById("alert-itemupload-" + localId);
+  hideAlert(alertEl);
+
+  const pending = await idbGetAllPendingItems();
+  const record = pending.find(r => r.localId === localId);
+  if (!record) { loadItemDataPendingList(); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await callApiWithProgress("uploadItemData", {
+      itemName: record.itemName, username: currentUser, rackNumber: record.rackNumber,
+      binNumber: record.binNumber, physicalQuantity: record.physicalQuantity, photos: record.photos
+    }, "Uploading " + record.itemName + "...", 90);
+    if (data.success) {
+      showToast(record.itemName + " uploaded and removed from this device.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      await idbDeletePendingItem(localId);
+      loadItemDataPendingList();
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+      btn.disabled = false; btn.innerHTML = "Upload";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
+    btn.disabled = false; btn.innerHTML = "Upload";
+  }
+}
+
+// ---- Update Info (online: view / delete / add photos for an existing item) ----
+function resetItemUpdateScreen() {
+  resetDropdownSelections();
+  selectedItemUpdateItem = "";
+  document.getElementById("itemupdate-item-search").value = "";
+  const b = document.getElementById("itemupdateitem-badge");
+  if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("item-update-results").style.display = "none";
+  hideAlert(document.getElementById("alert-item-update"));
+}
+
+async function loadItemPhotosForUpdate() {
+  const alertEl = document.getElementById("alert-item-update");
+  const btn = document.getElementById("btn-item-update-load");
+  hideAlert(alertEl);
+  if (!selectedItemUpdateItem) { showAlert(alertEl, "error", "Please select an Item."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
+  try {
+    const data = await callApi("getItemPhotos", { itemName: selectedItemUpdateItem });
+    if (data.success) {
+      renderItemUpdatePhotos(data.photos || []);
+      document.getElementById("item-update-results").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not load photos.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Load Photos";
+  }
+}
+
+function renderItemUpdatePhotos(photos) {
+  document.getElementById("item-update-count").textContent = photos.length + " of 3 photo(s)";
+  const container = document.getElementById("item-update-thumbs");
+  container.innerHTML = "";
+  photos.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "item-photo-thumb";
+    const thumbUrl = "https://drive.google.com/uc?export=view&id=" + p.id;
+    div.innerHTML = '<img src="' + thumbUrl + '" onerror="this.style.display=\'none\'">' +
+      '<button type="button" class="remove-photo-btn" onclick="deleteItemUpdatePhoto(\'' + p.id + '\')">&times;</button>';
+    container.appendChild(div);
+  });
+  if (photos.length < 3) {
+    const addTile = document.createElement("div");
+    addTile.className = "item-photo-add-tile";
+    addTile.textContent = "+";
+    addTile.onclick = () => openItemUpdateCameraPrompt();
+    container.appendChild(addTile);
+  }
+}
+
+async function deleteItemUpdatePhoto(fileId) {
+  const alertEl = document.getElementById("alert-item-update-action");
+  hideAlert(alertEl);
+  showBusyOverlay();
+  try {
+    const data = await callApi("deleteItemPhoto", { fileId: fileId });
+    if (data.success) {
+      showToast("Photo deleted.");
+      loadItemPhotosForUpdate();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not delete photo.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
+// Update Info reuses the same camera capture UI/functions, but on successful
+// capture uploads immediately (online) instead of saving locally.
+function openItemUpdateCameraPrompt() {
+  itemDataCapturedPhotos = [];
+  document.getElementById("item-camera-permission-prompt").style.display = "block";
+  itemDataCameraCaptureMode = "update";
+}
+
+async function uploadCapturedUpdatePhoto() {
+  const alertEl = document.getElementById("alert-item-update-action");
+  hideAlert(alertEl);
+  if (itemDataCapturedPhotos.length === 0) return;
+  showBusyOverlay();
+  try {
+    const data = await callApiWithProgress("uploadItemPhotos", {
+      itemName: selectedItemUpdateItem,
+      photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType }))
+    }, "Uploading photo...", 90);
+    if (data.success) {
+      showToast("Photo uploaded.");
+      itemDataCapturedPhotos = [];
+      loadItemPhotosForUpdate();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not upload photo.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
     hideBusyOverlay();
   }
 }
