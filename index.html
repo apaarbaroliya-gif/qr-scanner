@@ -567,16 +567,18 @@
     <div class="card" id="item-data-entry-card">
       <label>Item</label>
       <div class="search-wrap">
-        <input type="text" id="itemdata-item-search" autocomplete="off" placeholder="Type to search item..."
+        <input type="text" id="itemdataitem-search" autocomplete="off" placeholder="Type to search item..."
           oninput="filterDropdown('itemdataitem')" onfocus="filterDropdown('itemdataitem')" onblur="onDropdownBlur('itemdataitem')">
         <div class="search-dropdown" id="itemdataitem-dropdown"></div>
       </div>
       <div class="selected-badge" id="itemdataitem-badge"></div>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmItemDataItemSelection()">Next</button>
+      <div class="alert" id="alert-item-data-select"></div>
 
       <div id="item-data-fields" style="display:none">
         <label>Rack Number</label>
         <div class="search-wrap">
-          <input type="text" id="itemdata-rack-search" autocomplete="off" placeholder="Type to search rack..."
+          <input type="text" id="itemdatarack-search" autocomplete="off" placeholder="Type to search rack..."
             oninput="filterDropdown('itemdatarack')" onfocus="filterDropdown('itemdatarack')" onblur="onDropdownBlur('itemdatarack')">
           <div class="search-dropdown" id="itemdatarack-dropdown"></div>
         </div>
@@ -637,7 +639,7 @@
     <div class="card">
       <label>Item</label>
       <div class="search-wrap">
-        <input type="text" id="itemupdate-item-search" autocomplete="off" placeholder="Type to search item..."
+        <input type="text" id="itemupdateitem-search" autocomplete="off" placeholder="Type to search item..."
           oninput="filterDropdown('itemupdateitem')" onfocus="filterDropdown('itemupdateitem')" onblur="onDropdownBlur('itemupdateitem')">
         <div class="search-dropdown" id="itemupdateitem-dropdown"></div>
       </div>
@@ -2700,7 +2702,7 @@ function resetItemDataScreen() {
   resetDropdownSelections();
   selectedItemDataItem = ""; selectedItemDataRack = ""; itemDataItemHasPhotos = false;
   itemDataCapturedPhotos = [];
-  document.getElementById("itemdata-item-search").value = "";
+  document.getElementById("itemdataitem-search").value = "";
   const b = document.getElementById("itemdataitem-badge");
   if (b) { b.classList.remove("show"); b.textContent = ""; }
   document.getElementById("item-data-fields").style.display = "none";
@@ -2710,11 +2712,36 @@ function resetItemDataScreen() {
   document.getElementById("item-data-entry-card").style.display = "block";
   cancelItemDataCamera();
   hideAlert(document.getElementById("alert-item-data"));
+  hideAlert(document.getElementById("alert-item-data-select"));
   loadItemDataPendingList();
 }
 
 function resetItemDataEntryForm() {
   resetItemDataScreen();
+}
+
+// Resolves whatever is currently typed in the Item field against the known
+// item list (case-insensitive exact match) and proceeds - works even if the
+// dropdown's click-to-select didn't register for some reason.
+function confirmItemDataItemSelection() {
+  const alertEl = document.getElementById("alert-item-data-select");
+  hideAlert(alertEl);
+  const typed = document.getElementById("itemdataitem-search").value.trim();
+  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
+
+  const list = dropdownData.partItems || [];
+  const match = list.find(m => m.toLowerCase() === typed.toLowerCase());
+  if (!match) {
+    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any known Item. Check the spelling, or pick from the suggestions while typing.");
+    return;
+  }
+
+  selectedItemDataItem = match;
+  document.getElementById("itemdataitem-search").value = match;
+  const badge = document.getElementById("itemdataitem-badge");
+  badge.textContent = "Selected: " + match;
+  badge.classList.add("show");
+  onItemDataItemSelected();
 }
 
 async function onItemDataItemSelected() {
@@ -2738,7 +2765,7 @@ async function onItemDataItemSelected() {
       document.getElementById("itemdata-qty").value = data.existing.physicalQuantity || "";
       if (data.existing.rackNumber) {
         selectedItemDataRack = data.existing.rackNumber;
-        document.getElementById("itemdata-rack-search").value = data.existing.rackNumber;
+        document.getElementById("itemdatarack-search").value = data.existing.rackNumber;
         const rb = document.getElementById("itemdatarack-badge");
         rb.textContent = "Selected: " + data.existing.rackNumber; rb.classList.add("show");
       }
@@ -2931,7 +2958,7 @@ async function uploadPendingItemData(localId) {
 function resetItemUpdateScreen() {
   resetDropdownSelections();
   selectedItemUpdateItem = "";
-  document.getElementById("itemupdate-item-search").value = "";
+  document.getElementById("itemupdateitem-search").value = "";
   const b = document.getElementById("itemupdateitem-badge");
   if (b) { b.classList.remove("show"); b.textContent = ""; }
   document.getElementById("item-update-results").style.display = "none";
