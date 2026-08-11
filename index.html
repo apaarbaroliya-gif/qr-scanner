@@ -584,7 +584,7 @@
         </div>
         <div class="selected-badge" id="itemdatarack-badge"></div>
 
-        <label>Bin Number</label>
+        <label>Bin Number <span style="color:var(--muted)">(optional)</span></label>
         <input type="number" id="itemdata-bin" min="1" step="1" inputmode="numeric" placeholder="Enter bin number">
 
         <label>Physical Quantity</label>
@@ -655,6 +655,49 @@
     </div>
   </div>
 
+  <!-- SCREEN: ADD RACK NUMBER -->
+  <div class="screen" id="screen-add-rack">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Add Rack Number</span>
+    </div>
+    <div class="card">
+      <label>New Rack Number <span style="color:var(--muted)">(up to 10 characters)</span></label>
+      <input type="text" id="new-rack-number" maxlength="10" placeholder="Enter new Rack Number">
+    </div>
+    <button class="btn btn-success" id="btn-add-rack" onclick="submitNewRackNumber()">Add</button>
+    <div class="alert" id="alert-add-rack"></div>
+    <div id="add-rack-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetAddRackScreen()">Add Another</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: ITEM VIEWER -->
+  <div class="screen" id="screen-item-viewer">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Item Viewer</span>
+    </div>
+    <div class="card">
+      <label>Item <span style="color:var(--muted)">(type at least 3 characters)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="itemviewer-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('itemviewer')" onfocus="filterDropdown('itemviewer')" onblur="onDropdownBlur('itemviewer')">
+        <div class="search-dropdown" id="itemviewer-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="itemviewer-badge"></div>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmItemViewerSelection()">Next</button>
+    </div>
+    <div class="alert" id="alert-item-viewer"></div>
+
+    <div id="item-viewer-results" style="display:none">
+      <div class="card" id="item-viewer-details-card"></div>
+      <label style="margin-top:6px">Photos</label>
+      <div class="item-photo-thumbs" id="item-viewer-thumbs"></div>
+    </div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
@@ -708,7 +751,7 @@ let pdiViewerItems = [];
 let selectedPoItem = "";
 
 // Item Data state
-let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "";
+let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "", selectedItemViewerItem = "";
 let itemDataItemHasPhotos = false;
 let itemDataCapturedPhotos = []; // [{base64, mimeType}] for the item currently being entered
 let itemDataCameraCaptureMode = "entry"; // "entry" (save locally) or "update" (upload immediately)
@@ -741,7 +784,9 @@ const MODULE_META = {
   "Mark Task as Completed": { icon: "&#127919;", desc: "Close out assigned tasks" },
   "PDI Viewer": { icon: "&#128196;", desc: "View and export a machine's full PDI" },
   "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" },
-  "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" }
+  "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" },
+  "Add Rack Number": { icon: "&#127959;", desc: "Add a new Rack Number to the Parts list" },
+  "Item Viewer": { icon: "&#128269;", desc: "View an item's data and photos" }
 };
 
 // ============================================================
@@ -1128,6 +1173,13 @@ async function openModule(mod) {
     await loadDropdownData();
     resetItemDataScreen();
     showScreen("screen-item-data");
+  } else if (mod === "Add Rack Number") {
+    resetAddRackScreen();
+    showScreen("screen-add-rack");
+  } else if (mod === "Item Viewer") {
+    await loadDropdownData();
+    resetItemViewerScreen();
+    showScreen("screen-item-viewer");
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -1148,7 +1200,7 @@ function filterDropdown(which) {
   const isPoItem = which === "poitem";
   const isPdiMachine = which === "pdimachine";       // Machine PDI: only machines WITH details
   const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
-  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem";
+  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem" || which === "itemviewer";
   const isItemDataRack = which === "itemdatarack";
   const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack;
 
@@ -1226,6 +1278,7 @@ function selectDropdownValue(which, m) {
   else if (which === "itemdataitem") { selectedItemDataItem = m; onItemDataItemSelected(); }
   else if (which === "itemdatarack") selectedItemDataRack = m;
   else if (which === "itemupdateitem") selectedItemUpdateItem = m;
+  else if (which === "itemviewer") selectedItemViewerItem = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -1238,8 +1291,8 @@ function selectDropdownValue(which, m) {
 function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
   selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
-  selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem"].forEach(which => {
+  selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = ""; selectedItemViewerItem = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -2868,7 +2921,7 @@ async function saveItemDataLocally() {
   if (!selectedItemDataRack) { showAlert(alertEl, "error", "Please select a Rack Number."); return; }
   const bin = document.getElementById("itemdata-bin").value;
   const qty = document.getElementById("itemdata-qty").value;
-  if (!bin || !/^\d+$/.test(bin) || parseInt(bin, 10) < 1) { showAlert(alertEl, "error", "Bin Number must be a positive whole number."); return; }
+  if (bin && (!/^\d+$/.test(bin) || parseInt(bin, 10) < 1)) { showAlert(alertEl, "error", "Bin Number must be a positive whole number if entered."); return; }
   if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
 
   const pending = await idbGetAllPendingItems();
@@ -2916,7 +2969,7 @@ async function loadItemDataPendingList() {
     const card = document.createElement("div");
     card.className = "task-card";
     card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
-      '<div class="task-sub">Rack: ' + escHtml(record.rackNumber) + '  |  Bin: ' + escHtml(record.binNumber) + '  |  Qty: ' + escHtml(record.physicalQuantity) + '</div>' +
+      '<div class="task-sub">Rack: ' + escHtml(record.rackNumber) + '  |  Bin: ' + escHtml(record.binNumber || "\u2014") + '  |  Qty: ' + escHtml(record.physicalQuantity) + '</div>' +
       '<div class="task-meta">' + record.photoCount + ' photo(s) attached</div>' +
       '<button class="btn btn-success" style="margin-top:10px" id="btn-itemupload-' + record.localId + '" onclick="uploadPendingItemData(\'' + record.localId + '\')">Upload</button>' +
       '<div class="alert" id="alert-itemupload-' + record.localId + '"></div>';
@@ -3056,6 +3109,130 @@ async function uploadCapturedUpdatePhoto() {
     showAlert(alertEl, "error", "Could not connect to server.");
   } finally {
     hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// ADD RACK NUMBER
+// ============================================================
+function resetAddRackScreen() {
+  document.getElementById("new-rack-number").value = "";
+  document.getElementById("btn-add-rack").style.display = "block";
+  document.getElementById("add-rack-post-save").style.display = "none";
+  hideAlert(document.getElementById("alert-add-rack"));
+}
+
+async function submitNewRackNumber() {
+  const alertEl = document.getElementById("alert-add-rack");
+  const btn = document.getElementById("btn-add-rack");
+  hideAlert(alertEl);
+
+  const rackNumber = document.getElementById("new-rack-number").value.trim();
+  if (!rackNumber) { showAlert(alertEl, "error", "Please enter a Rack Number."); return; }
+  if (rackNumber.length > 10) { showAlert(alertEl, "error", "Rack Number must be 10 characters or fewer."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("addRackNumber", { rackNumber: rackNumber });
+    if (data.success) {
+      showAlert(alertEl, "success", "Rack Number \"" + rackNumber + "\" added.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      btn.style.display = "none";
+      document.getElementById("add-rack-post-save").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to add Rack Number.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to add Rack Number: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Add";
+    hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// ITEM VIEWER (read-only)
+// ============================================================
+function resetItemViewerScreen() {
+  resetDropdownSelections();
+  selectedItemViewerItem = "";
+  document.getElementById("itemviewer-search").value = "";
+  const b = document.getElementById("itemviewer-badge");
+  if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("item-viewer-results").style.display = "none";
+  hideAlert(document.getElementById("alert-item-viewer"));
+}
+
+// Resolves whatever's typed against the known item list, same resilience
+// pattern as Item Data's Next button, independent of the dropdown click.
+function confirmItemViewerSelection() {
+  const alertEl = document.getElementById("alert-item-viewer");
+  hideAlert(alertEl);
+  const typed = document.getElementById("itemviewer-search").value.trim();
+  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
+
+  const list = dropdownData.partItems || [];
+  const match = list.find(m => m.toLowerCase() === typed.toLowerCase());
+  if (!match) {
+    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any known Item.");
+    return;
+  }
+
+  selectedItemViewerItem = match;
+  document.getElementById("itemviewer-search").value = match;
+  const badge = document.getElementById("itemviewer-badge");
+  badge.textContent = "Selected: " + match;
+  badge.classList.add("show");
+  loadItemViewerData();
+}
+
+async function loadItemViewerData() {
+  const alertEl = document.getElementById("alert-item-viewer");
+  hideAlert(alertEl);
+  document.getElementById("item-viewer-results").style.display = "none";
+
+  try {
+    const data = await callApi("getItemFullData", { itemName: selectedItemViewerItem });
+    if (data.success) {
+      renderItemViewerResults(data.locationData, data.photos || []);
+      document.getElementById("item-viewer-results").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not load item data.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+function renderItemViewerResults(loc, photos) {
+  const card = document.getElementById("item-viewer-details-card");
+  if (!loc) {
+    card.innerHTML = '<p style="color:var(--muted);font-size:14px">No location/quantity data on file yet for this item.</p>';
+  } else {
+    card.innerHTML =
+      '<div style="font-size:15px;font-weight:700;margin-bottom:8px">' + escHtml(selectedItemViewerItem) + '</div>' +
+      '<div style="font-size:13px;line-height:1.9">' +
+      'Rack Number: <strong>' + escHtml(loc.rackNumber || "\u2014") + '</strong><br>' +
+      'Bin Number: <strong>' + escHtml(loc.binNumber || "\u2014") + '</strong><br>' +
+      'Physical Quantity: <strong>' + escHtml(loc.physicalQuantity || "\u2014") + '</strong><br>' +
+      'Last Updated By: <strong>' + escHtml(loc.username || "\u2014") + '</strong><br>' +
+      'Last Updated On: <strong>' + escHtml(loc.date || "") + ' ' + escHtml(loc.timestamp || "") + '</strong>' +
+      '</div>';
+  }
+
+  const thumbs = document.getElementById("item-viewer-thumbs");
+  thumbs.innerHTML = "";
+  if (photos.length === 0) {
+    thumbs.innerHTML = '<p style="color:var(--muted);font-size:13px">No photos on file for this item.</p>';
+  } else {
+    photos.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "item-photo-thumb";
+      const thumbUrl = "https://drive.google.com/uc?export=view&id=" + p.id;
+      div.innerHTML = '<img src="' + thumbUrl + '" onerror="this.style.display=\'none\'">';
+      thumbs.appendChild(div);
+    });
   }
 }
 
