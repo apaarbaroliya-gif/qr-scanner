@@ -1165,6 +1165,15 @@ function filterDropdown(which) {
     : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
     : isItemDataItem ? (dropdownData.partItems || []) : isItemDataRack ? (dropdownData.rackNumbers || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
+
+  // Item Name search only kicks in after 3+ characters, and shows at most 10 matches
+  if (isItemDataItem && query.length < 3) {
+    dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">Type at least 3 characters</div>';
+    dropdown.classList.add("open");
+    return;
+  }
+  const resultLimit = isItemDataItem ? 10 : 50;
+
   const noResultsLabel = isEmployee ? "No employees found"
     : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
@@ -1175,7 +1184,7 @@ function filterDropdown(which) {
   if (filtered.length === 0) {
     dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">' + noResultsLabel + '</div>';
   } else {
-    filtered.slice(0, 50).forEach(m => {
+    filtered.slice(0, resultLimit).forEach(m => {
       const div = document.createElement("div");
       div.className = "search-option";
       const idx = query ? m.toLowerCase().indexOf(query.toLowerCase()) : -1;
