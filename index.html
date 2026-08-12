@@ -590,6 +590,22 @@
         <label>Physical Quantity</label>
         <input type="number" id="itemdata-qty" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
 
+        <label>Category <span style="color:var(--muted)">(optional)</span></label>
+        <div class="search-wrap">
+          <input type="text" id="itemdatacategory-search" autocomplete="off" placeholder="Type to search category..."
+            oninput="filterDropdown('itemdatacategory')" onfocus="filterDropdown('itemdatacategory')" onblur="onDropdownBlur('itemdatacategory')">
+          <div class="search-dropdown" id="itemdatacategory-dropdown"></div>
+        </div>
+        <div class="selected-badge" id="itemdatacategory-badge"></div>
+
+        <label>Part Number <span style="color:var(--muted)">(optional)</span></label>
+        <div class="search-wrap">
+          <input type="text" id="itemdatapartnumber-search" autocomplete="off" placeholder="Type to search part number..."
+            oninput="filterDropdown('itemdatapartnumber')" onfocus="filterDropdown('itemdatapartnumber')" onblur="onDropdownBlur('itemdatapartnumber')">
+          <div class="search-dropdown" id="itemdatapartnumber-dropdown"></div>
+        </div>
+        <div class="selected-badge" id="itemdatapartnumber-badge"></div>
+
         <div id="item-data-photo-section" style="display:none">
           <label style="margin-top:16px">Photos <span style="color:var(--muted)">(new item - up to 3)</span></label>
           <div class="item-photo-thumbs" id="item-data-photo-thumbs"></div>
@@ -673,6 +689,42 @@
     </div>
   </div>
 
+  <!-- SCREEN: ADD NEW CATEGORY -->
+  <div class="screen" id="screen-add-category">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Add New Category</span>
+    </div>
+    <div class="card">
+      <label>New Category</label>
+      <input type="text" id="new-category" placeholder="Enter new Category">
+    </div>
+    <button class="btn btn-success" id="btn-add-category" onclick="submitNewCategory()">Add</button>
+    <div class="alert" id="alert-add-category"></div>
+    <div id="add-category-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetAddCategoryScreen()">Add Another</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: ADD NEW PART NUMBER -->
+  <div class="screen" id="screen-add-partnumber">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Add New Part Number</span>
+    </div>
+    <div class="card">
+      <label>New Part Number</label>
+      <input type="text" id="new-partnumber" placeholder="Enter new Part Number">
+    </div>
+    <button class="btn btn-success" id="btn-add-partnumber" onclick="submitNewPartNumber()">Add</button>
+    <div class="alert" id="alert-add-partnumber"></div>
+    <div id="add-partnumber-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetAddPartNumberScreen()">Add Another</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+  </div>
+
   <!-- SCREEN: ITEM VIEWER -->
   <div class="screen" id="screen-item-viewer">
     <div class="topbar">
@@ -752,6 +804,7 @@ let selectedPoItem = "";
 
 // Item Data state
 let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "", selectedItemViewerItem = "";
+let selectedItemDataCategory = "", selectedItemDataPartNumber = "";
 let itemDataItemHasPhotos = false;
 let itemDataCapturedPhotos = []; // [{base64, mimeType}] for the item currently being entered
 let itemDataCameraCaptureMode = "entry"; // "entry" (save locally) or "update" (upload immediately)
@@ -786,6 +839,8 @@ const MODULE_META = {
   "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" },
   "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" },
   "Add Rack Number": { icon: "&#127959;", desc: "Add a new Rack Number to the Parts list" },
+  "Add New Category": { icon: "&#128193;", desc: "Add a new Category to the Parts list" },
+  "Add New Part Number": { icon: "&#128290;", desc: "Add a new Part Number to the Parts list" },
   "Item Viewer": { icon: "&#128269;", desc: "View an item's data and photos" }
 };
 
@@ -1176,6 +1231,12 @@ async function openModule(mod) {
   } else if (mod === "Add Rack Number") {
     resetAddRackScreen();
     showScreen("screen-add-rack");
+  } else if (mod === "Add New Category") {
+    resetAddCategoryScreen();
+    showScreen("screen-add-category");
+  } else if (mod === "Add New Part Number") {
+    resetAddPartNumberScreen();
+    showScreen("screen-add-partnumber");
   } else if (mod === "Item Viewer") {
     await loadDropdownData();
     resetItemViewerScreen();
@@ -1202,7 +1263,9 @@ function filterDropdown(which) {
   const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
   const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem" || which === "itemviewer";
   const isItemDataRack = which === "itemdatarack";
-  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack;
+  const isItemDataCategory = which === "itemdatacategory";
+  const isItemDataPartNumber = which === "itemdatapartnumber";
+  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory || isItemDataPartNumber;
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -1218,6 +1281,7 @@ function filterDropdown(which) {
     : isPoItem ? (dropdownData.stockItems || [])
     : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
     : isItemDataItem ? (dropdownData.partItems || []) : isItemDataRack ? (dropdownData.rackNumbers || [])
+    : isItemDataCategory ? (dropdownData.categories || []) : isItemDataPartNumber ? (dropdownData.partNumbers || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
 
   // Item Name search only kicks in after 3+ characters, and shows at most 10 matches
@@ -1229,7 +1293,7 @@ function filterDropdown(which) {
   const resultLimit = isItemDataItem ? 10 : 50;
 
   const noResultsLabel = isEmployee ? "No employees found"
-    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack) ? "No matches found" : "No machines found";
+    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory || isItemDataPartNumber) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
     if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -1277,6 +1341,8 @@ function selectDropdownValue(which, m) {
   else if (which === "poitem") selectedPoItem = m;
   else if (which === "itemdataitem") { selectedItemDataItem = m; onItemDataItemSelected(); }
   else if (which === "itemdatarack") selectedItemDataRack = m;
+  else if (which === "itemdatacategory") selectedItemDataCategory = m;
+  else if (which === "itemdatapartnumber") selectedItemDataPartNumber = m;
   else if (which === "itemupdateitem") selectedItemUpdateItem = m;
   else if (which === "itemviewer") selectedItemViewerItem = m;
   else if (which.indexOf("assignee-") === 0) {
@@ -1292,7 +1358,8 @@ function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
   selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
   selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = ""; selectedItemViewerItem = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer"].forEach(which => {
+  selectedItemDataCategory = ""; selectedItemDataPartNumber = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer", "itemdatacategory", "itemdatapartnumber"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -2822,6 +2889,18 @@ async function onItemDataItemSelected() {
         const rb = document.getElementById("itemdatarack-badge");
         rb.textContent = "Selected: " + data.existing.rackNumber; rb.classList.add("show");
       }
+      if (data.existing.category) {
+        selectedItemDataCategory = data.existing.category;
+        document.getElementById("itemdatacategory-search").value = data.existing.category;
+        const cb = document.getElementById("itemdatacategory-badge");
+        cb.textContent = "Selected: " + data.existing.category; cb.classList.add("show");
+      }
+      if (data.existing.partNumber) {
+        selectedItemDataPartNumber = data.existing.partNumber;
+        document.getElementById("itemdatapartnumber-search").value = data.existing.partNumber;
+        const pb = document.getElementById("itemdatapartnumber-badge");
+        pb.textContent = "Selected: " + data.existing.partNumber; pb.classList.add("show");
+      }
     } else {
       document.getElementById("itemdata-bin").value = "";
       document.getElementById("itemdata-qty").value = "";
@@ -2936,6 +3015,8 @@ async function saveItemDataLocally() {
     rackNumber: selectedItemDataRack,
     binNumber: bin,
     physicalQuantity: qty,
+    category: selectedItemDataCategory,
+    partNumber: selectedItemDataPartNumber,
     photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType })),
     photoCount: itemDataCapturedPhotos.length,
     createdAt: Date.now()
@@ -2970,6 +3051,7 @@ async function loadItemDataPendingList() {
     card.className = "task-card";
     card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
       '<div class="task-sub">Rack: ' + escHtml(record.rackNumber) + '  |  Bin: ' + escHtml(record.binNumber || "\u2014") + '  |  Qty: ' + escHtml(record.physicalQuantity) + '</div>' +
+      (record.category || record.partNumber ? '<div class="task-meta">Category: ' + escHtml(record.category || "\u2014") + '  |  Part #: ' + escHtml(record.partNumber || "\u2014") + '</div>' : '') +
       '<div class="task-meta">' + record.photoCount + ' photo(s) attached</div>' +
       '<button class="btn btn-success" style="margin-top:10px" id="btn-itemupload-' + record.localId + '" onclick="uploadPendingItemData(\'' + record.localId + '\')">Upload</button>' +
       '<div class="alert" id="alert-itemupload-' + record.localId + '"></div>';
@@ -2990,7 +3072,8 @@ async function uploadPendingItemData(localId) {
   try {
     const data = await callApiWithProgress("uploadItemData", {
       itemName: record.itemName, username: currentUser, rackNumber: record.rackNumber,
-      binNumber: record.binNumber, physicalQuantity: record.physicalQuantity, photos: record.photos
+      binNumber: record.binNumber, physicalQuantity: record.physicalQuantity,
+      category: record.category, partNumber: record.partNumber, photos: record.photos
     }, "Uploading " + record.itemName + "...", 90);
     if (data.success) {
       showToast(record.itemName + " uploaded and removed from this device.");
@@ -3151,6 +3234,76 @@ async function submitNewRackNumber() {
   }
 }
 
+function resetAddCategoryScreen() {
+  document.getElementById("new-category").value = "";
+  document.getElementById("btn-add-category").style.display = "block";
+  document.getElementById("add-category-post-save").style.display = "none";
+  hideAlert(document.getElementById("alert-add-category"));
+}
+
+async function submitNewCategory() {
+  const alertEl = document.getElementById("alert-add-category");
+  const btn = document.getElementById("btn-add-category");
+  hideAlert(alertEl);
+
+  const category = document.getElementById("new-category").value.trim();
+  if (!category) { showAlert(alertEl, "error", "Please enter a Category."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("addCategory", { category: category });
+    if (data.success) {
+      showAlert(alertEl, "success", "Category \"" + category + "\" added.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      btn.style.display = "none";
+      document.getElementById("add-category-post-save").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to add Category.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to add Category: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Add";
+    hideBusyOverlay();
+  }
+}
+
+function resetAddPartNumberScreen() {
+  document.getElementById("new-partnumber").value = "";
+  document.getElementById("btn-add-partnumber").style.display = "block";
+  document.getElementById("add-partnumber-post-save").style.display = "none";
+  hideAlert(document.getElementById("alert-add-partnumber"));
+}
+
+async function submitNewPartNumber() {
+  const alertEl = document.getElementById("alert-add-partnumber");
+  const btn = document.getElementById("btn-add-partnumber");
+  hideAlert(alertEl);
+
+  const partNumber = document.getElementById("new-partnumber").value.trim();
+  if (!partNumber) { showAlert(alertEl, "error", "Please enter a Part Number."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("addPartNumber", { partNumber: partNumber });
+    if (data.success) {
+      showAlert(alertEl, "success", "Part Number \"" + partNumber + "\" added.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      btn.style.display = "none";
+      document.getElementById("add-partnumber-post-save").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to add Part Number.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to add Part Number: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Add";
+    hideBusyOverlay();
+  }
+}
+
 // ============================================================
 // ITEM VIEWER (read-only)
 // ============================================================
@@ -3216,6 +3369,8 @@ function renderItemViewerResults(loc, photos) {
       'Rack Number: <strong>' + escHtml(loc.rackNumber || "\u2014") + '</strong><br>' +
       'Bin Number: <strong>' + escHtml(loc.binNumber || "\u2014") + '</strong><br>' +
       'Physical Quantity: <strong>' + escHtml(loc.physicalQuantity || "\u2014") + '</strong><br>' +
+      'Category: <strong>' + escHtml(loc.category || "\u2014") + '</strong><br>' +
+      'Part Number: <strong>' + escHtml(loc.partNumber || "\u2014") + '</strong><br>' +
       'Last Updated By: <strong>' + escHtml(loc.username || "\u2014") + '</strong><br>' +
       'Last Updated On: <strong>' + escHtml(loc.date || "") + ' ' + escHtml(loc.timestamp || "") + '</strong>' +
       '</div>';
