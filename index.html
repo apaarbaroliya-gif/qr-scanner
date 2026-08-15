@@ -600,16 +600,11 @@
         </div>
         <div class="selected-badge" id="itemdatacategory-badge"></div>
 
-        <label>Part Number <span style="color:var(--muted)">(optional)</span></label>
-        <div class="search-wrap">
-          <input type="text" id="itemdatapartnumber-search" autocomplete="off" placeholder="Type to search part number..."
-            oninput="filterDropdown('itemdatapartnumber')" onfocus="filterDropdown('itemdatapartnumber')" onblur="onDropdownBlur('itemdatapartnumber')">
-          <div class="search-dropdown" id="itemdatapartnumber-dropdown"></div>
-        </div>
-        <div class="selected-badge" id="itemdatapartnumber-badge"></div>
+        <label>Part Number <span style="color:var(--muted)">(optional, up to 15 characters)</span></label>
+        <input type="text" id="itemdata-partnumber" maxlength="15" placeholder="Enter Part Number">
 
-        <div id="item-data-photo-section" style="display:none">
-          <label style="margin-top:16px">Photos <span style="color:var(--muted)">(new item - up to 3)</span></label>
+        <div id="item-data-photo-section">
+          <label style="margin-top:16px">Photos <span style="color:var(--muted)">(up to 3 total)</span></label>
           <div class="item-photo-thumbs" id="item-data-photo-thumbs"></div>
         </div>
       </div>
@@ -718,24 +713,6 @@
     </div>
   </div>
 
-  <!-- SCREEN: ADD NEW PART NUMBER -->
-  <div class="screen" id="screen-add-partnumber">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Add New Part Number</span>
-    </div>
-    <div class="card">
-      <label>New Part Number</label>
-      <input type="text" id="new-partnumber" placeholder="Enter new Part Number">
-    </div>
-    <button class="btn btn-success" id="btn-add-partnumber" onclick="submitNewPartNumber()">Add</button>
-    <div class="alert" id="alert-add-partnumber"></div>
-    <div id="add-partnumber-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetAddPartNumberScreen()">Add Another</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
   <!-- SCREEN: ITEM VIEWER -->
   <div class="screen" id="screen-item-viewer">
     <div class="topbar">
@@ -758,6 +735,65 @@
       <div class="card" id="item-viewer-details-card"></div>
       <label style="margin-top:6px">Photos</label>
       <div class="item-photo-thumbs" id="item-viewer-thumbs"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: AUDIT -->
+  <div class="screen" id="screen-audit">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Audit</span>
+    </div>
+    <div class="card">
+      <label>Item <span style="color:var(--muted)">(type at least 3 characters - only existing items shown)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="audititem-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('audititem')" onfocus="filterDropdown('audititem')" onblur="onDropdownBlur('audititem')">
+        <div class="search-dropdown" id="audititem-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="audititem-badge"></div>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmAuditItemSelection()">Next</button>
+    </div>
+    <div class="alert" id="alert-audit-select"></div>
+
+    <div id="audit-fields" style="display:none">
+      <div class="card">
+        <div class="task-count-text" id="audit-current-qty" style="margin:0 0 10px"></div>
+        <label>New Physical Quantity</label>
+        <input type="number" id="audit-qty" min="1" step="1" inputmode="numeric" placeholder="Enter new quantity">
+      </div>
+      <button class="btn btn-success" id="btn-audit-save" onclick="submitAuditData()">Save</button>
+      <div class="alert" id="alert-audit-save"></div>
+      <div id="audit-post-save" style="display:none;margin-top:4px">
+        <button class="btn btn-success" onclick="resetAuditScreen()">Audit Another</button>
+        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: EMPLOYEE INCENTIVE -->
+  <div class="screen" id="screen-incentive">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Employee Incentive</span>
+    </div>
+    <div class="card">
+      <label>Date</label>
+      <input type="date" id="incentive-date">
+    </div>
+    <div class="task-count-text" id="incentive-count" style="margin:6px 0"></div>
+    <div id="incentive-employee-list"></div>
+    <button class="btn btn-success floating-save-btn" id="btn-incentive-save" onclick="saveIncentiveLocally()">Save Locally</button>
+    <div class="alert" id="alert-incentive"></div>
+    <div id="incentive-post-save" style="display:none;margin-top:4px;padding-bottom:70px">
+      <button class="btn btn-success" onclick="resetIncentiveScreen()">Enter Another Day</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+
+    <div style="padding-bottom:70px">
+      <h4 style="margin-top:24px;margin-bottom:6px">Pending on This Device</h4>
+      <div class="task-count-text" id="incentive-pending-count" style="margin:0 0 8px"></div>
+      <div id="incentive-pending-list"></div>
     </div>
   </div>
 
@@ -815,7 +851,12 @@ let selectedPoItem = "";
 
 // Item Data state
 let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "", selectedItemViewerItem = "";
-let selectedItemDataCategory = "", selectedItemDataPartNumber = "";
+let selectedAuditItem = "";
+let auditItemsList = [];
+let auditCurrentQty = "";
+let incentiveNamesList = [];
+let incentiveSelections = {}; // { name: { half: bool, full: bool } }
+let selectedItemDataCategory = "";
 let itemDataItemHasPhotos = false;
 let itemDataCapturedPhotos = []; // [{base64, mimeType}] for the item currently being entered
 let itemDataCameraCaptureMode = "entry"; // "entry" (save locally) or "update" (upload immediately)
@@ -851,8 +892,9 @@ const MODULE_META = {
   "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" },
   "Add Rack Number": { icon: "&#127959;", desc: "Add a new Rack Number to the Parts list" },
   "Add New Category": { icon: "&#128193;", desc: "Add a new Category to the Parts list" },
-  "Add New Part Number": { icon: "&#128290;", desc: "Add a new Part Number to the Parts list" },
-  "Item Viewer": { icon: "&#128269;", desc: "View an item's data and photos" }
+  "Item Viewer": { icon: "&#128269;", desc: "View an item's data and photos" },
+  "Audit": { icon: "&#128203;", desc: "Update physical quantity for an existing item" },
+  "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" }
 };
 
 // ============================================================
@@ -1004,7 +1046,8 @@ const SCREEN_REFRESH_FUNCTIONS = {
   "screen-pdi-select": () => { loadUncompletedPdiList(true); loadPdiPendingUploads(); },
   "screen-task-admin": () => loadTaskAdminPendingTransfers(),
   "screen-task-list": () => loadTaskWidgets(true),
-  "screen-item-data": () => loadItemDataPendingList()
+  "screen-item-data": () => loadItemDataPendingList(),
+  "screen-incentive": () => loadIncentivePendingList()
 };
 let currentScreenRefreshFn = null;
 
@@ -1245,13 +1288,18 @@ async function openModule(mod) {
   } else if (mod === "Add New Category") {
     resetAddCategoryScreen();
     showScreen("screen-add-category");
-  } else if (mod === "Add New Part Number") {
-    resetAddPartNumberScreen();
-    showScreen("screen-add-partnumber");
   } else if (mod === "Item Viewer") {
     await loadDropdownData();
     resetItemViewerScreen();
     showScreen("screen-item-viewer");
+  } else if (mod === "Audit") {
+    await loadAuditableItems();
+    resetAuditScreen();
+    showScreen("screen-audit");
+  } else if (mod === "Employee Incentive") {
+    await loadIncentiveNames();
+    resetIncentiveScreen();
+    showScreen("screen-incentive");
   } else {
     showToast(mod + " module coming soon.");
   }
@@ -1272,11 +1320,10 @@ function filterDropdown(which) {
   const isPoItem = which === "poitem";
   const isPdiMachine = which === "pdimachine";       // Machine PDI: only machines WITH details
   const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
-  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem" || which === "itemviewer";
+  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem" || which === "itemviewer" || which === "audititem";
   const isItemDataRack = which === "itemdatarack";
   const isItemDataCategory = which === "itemdatacategory";
-  const isItemDataPartNumber = which === "itemdatapartnumber";
-  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory || isItemDataPartNumber;
+  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory;
 
   if (isEmployee && query === "") {
     // Field cleared - drop the stored selection for this slot too
@@ -1291,8 +1338,9 @@ function filterDropdown(which) {
     : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
     : isPoItem ? (dropdownData.stockItems || [])
     : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
+    : which === "audititem" ? auditItemsList
     : isItemDataItem ? (dropdownData.partItems || []) : isItemDataRack ? (dropdownData.rackNumbers || [])
-    : isItemDataCategory ? (dropdownData.categories || []) : isItemDataPartNumber ? (dropdownData.partNumbers || [])
+    : isItemDataCategory ? (dropdownData.categories || [])
     : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
 
   // Item Name search only kicks in after 3+ characters, and shows at most 10 matches
@@ -1304,7 +1352,7 @@ function filterDropdown(which) {
   const resultLimit = isItemDataItem ? 10 : 50;
 
   const noResultsLabel = isEmployee ? "No employees found"
-    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory || isItemDataPartNumber) ? "No matches found" : "No machines found";
+    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory) ? "No matches found" : "No machines found";
   const filtered = list.filter(m => {
     if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -1353,9 +1401,9 @@ function selectDropdownValue(which, m) {
   else if (which === "itemdataitem") { selectedItemDataItem = m; onItemDataItemSelected(); }
   else if (which === "itemdatarack") selectedItemDataRack = m;
   else if (which === "itemdatacategory") selectedItemDataCategory = m;
-  else if (which === "itemdatapartnumber") selectedItemDataPartNumber = m;
   else if (which === "itemupdateitem") selectedItemUpdateItem = m;
   else if (which === "itemviewer") selectedItemViewerItem = m;
+  else if (which === "audititem") selectedAuditItem = m;
   else if (which.indexOf("assignee-") === 0) {
     const parts = which.split("-"); // ["assignee", rowIndex, slot]
     const rowIndex = parts[1], slot = parts[2];
@@ -1369,8 +1417,8 @@ function resetDropdownSelections() {
   selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
   selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
   selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = ""; selectedItemViewerItem = "";
-  selectedItemDataCategory = ""; selectedItemDataPartNumber = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer", "itemdatacategory", "itemdatapartnumber"].forEach(which => {
+  selectedItemDataCategory = "";
+  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer", "itemdatacategory"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -2832,12 +2880,12 @@ function idbDeletePendingItem(localId) {
 function resetItemDataScreen() {
   resetDropdownSelections();
   selectedItemDataItem = ""; selectedItemDataRack = ""; itemDataItemHasPhotos = false;
-  itemDataCapturedPhotos = [];
+  itemDataCapturedPhotos = []; itemDataExistingPhotos = [];
   document.getElementById("itemdataitem-search").value = "";
   const b = document.getElementById("itemdataitem-badge");
   if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("itemdata-partnumber").value = "";
   document.getElementById("item-data-fields").style.display = "none";
-  document.getElementById("item-data-photo-section").style.display = "none";
   document.getElementById("btn-item-data-save").style.display = "none";
   document.getElementById("item-data-post-save").style.display = "none";
   document.getElementById("item-data-entry-card").style.display = "block";
@@ -2875,25 +2923,27 @@ function confirmItemDataItemSelection() {
   onItemDataItemSelected();
 }
 
+let itemDataExistingPhotos = []; // [{id, name, url}] - photos already on Drive for the selected item
+
 async function onItemDataItemSelected() {
   const alertEl = document.getElementById("alert-item-data");
   hideAlert(alertEl);
   document.getElementById("item-data-fields").style.display = "none";
   itemDataCapturedPhotos = [];
+  itemDataExistingPhotos = [];
 
   try {
     const data = await callApi("checkItemHasPhotos", { itemName: selectedItemDataItem });
     if (!data.success) { showAlert(alertEl, "error", data.error || "Could not check this item."); return; }
     itemDataItemHasPhotos = !!data.hasPhotos;
     document.getElementById("item-data-fields").style.display = "block";
-    document.getElementById("item-data-photo-section").style.display = itemDataItemHasPhotos ? "none" : "block";
-    renderItemDataPhotoThumbnails();
     document.getElementById("btn-item-data-save").style.display = "block";
 
     // Pre-fill with existing values, if any (a refill of an existing item)
     if (data.existing) {
       document.getElementById("itemdata-bin").value = data.existing.binNumber || "";
       document.getElementById("itemdata-qty").value = data.existing.physicalQuantity || "";
+      document.getElementById("itemdata-partnumber").value = data.existing.partNumber || "";
       if (data.existing.rackNumber) {
         selectedItemDataRack = data.existing.rackNumber;
         document.getElementById("itemdatarack-search").value = data.existing.rackNumber;
@@ -2906,16 +2956,18 @@ async function onItemDataItemSelected() {
         const cb = document.getElementById("itemdatacategory-badge");
         cb.textContent = "Selected: " + data.existing.category; cb.classList.add("show");
       }
-      if (data.existing.partNumber) {
-        selectedItemDataPartNumber = data.existing.partNumber;
-        document.getElementById("itemdatapartnumber-search").value = data.existing.partNumber;
-        const pb = document.getElementById("itemdatapartnumber-badge");
-        pb.textContent = "Selected: " + data.existing.partNumber; pb.classList.add("show");
-      }
     } else {
       document.getElementById("itemdata-bin").value = "";
       document.getElementById("itemdata-qty").value = "";
+      document.getElementById("itemdata-partnumber").value = "";
     }
+
+    // Show existing photos (with delete) instead of hiding the photo section entirely
+    if (itemDataItemHasPhotos) {
+      const photoData = await callApiWithProgress("getItemPhotos", { itemName: selectedItemDataItem }, "Loading photos...", 10);
+      if (photoData.success) itemDataExistingPhotos = photoData.photos || [];
+    }
+    renderItemDataPhotoThumbnails();
   } catch (e) {
     showAlert(alertEl, "error", "Could not connect to server.");
   }
@@ -2949,7 +3001,7 @@ async function startItemDataCamera() {
 }
 
 function openItemDataCameraPrompt() {
-  if (itemDataCapturedPhotos.length >= 3) { showToast("Maximum 3 photos."); return; }
+  if (itemDataExistingPhotos.length + itemDataCapturedPhotos.length >= 3) { showToast("Maximum 3 photos."); return; }
   itemDataCameraCaptureMode = "entry";
   document.getElementById("item-camera-permission-prompt").style.display = "block";
 }
@@ -3053,18 +3105,52 @@ function removeItemDataPhoto(idx) {
 function renderItemDataPhotoThumbnails() {
   const container = document.getElementById("item-data-photo-thumbs");
   container.innerHTML = "";
+
+  itemDataExistingPhotos.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "item-photo-thumb";
+    div.innerHTML = photoImgHtml(p) +
+      '<button type="button" class="remove-photo-btn" onclick="deleteItemDataExistingPhoto(\'' + p.id + '\')">&times;</button>';
+    container.appendChild(div);
+  });
+
   itemDataCapturedPhotos.forEach((p, idx) => {
     const div = document.createElement("div");
     div.className = "item-photo-thumb";
     div.innerHTML = '<img src="' + p.dataUrl + '"><button type="button" class="remove-photo-btn" onclick="removeItemDataPhoto(' + idx + ')">&times;</button>';
     container.appendChild(div);
   });
-  if (itemDataCapturedPhotos.length < 3) {
+
+  const totalCount = itemDataExistingPhotos.length + itemDataCapturedPhotos.length;
+  if (totalCount < 3) {
     const addTile = document.createElement("div");
     addTile.className = "item-photo-add-tile";
     addTile.textContent = "+";
     addTile.onclick = openItemDataCameraPrompt;
     container.appendChild(addTile);
+  }
+}
+
+// Deletes an already-uploaded photo directly from the Item Data screen -
+// this is an immediate online action (can't be queued offline, since it
+// needs to actually remove the file from Drive right away).
+async function deleteItemDataExistingPhoto(fileId) {
+  const alertEl = document.getElementById("alert-item-data");
+  hideAlert(alertEl);
+  showBusyOverlay();
+  try {
+    const data = await callApi("deleteItemPhoto", { fileId: fileId });
+    if (data.success) {
+      showToast("Photo deleted.");
+      itemDataExistingPhotos = itemDataExistingPhotos.filter(p => p.id !== fileId);
+      renderItemDataPhotoThumbnails();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not delete photo.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    hideBusyOverlay();
   }
 }
 
@@ -3077,8 +3163,10 @@ async function saveItemDataLocally() {
   if (!selectedItemDataRack) { showAlert(alertEl, "error", "Please select a Rack Number."); return; }
   const bin = document.getElementById("itemdata-bin").value;
   const qty = document.getElementById("itemdata-qty").value;
+  const partNumber = document.getElementById("itemdata-partnumber").value.trim();
   if (bin && (!/^\d+$/.test(bin) || parseInt(bin, 10) < 1)) { showAlert(alertEl, "error", "Bin Number must be a positive whole number if entered."); return; }
   if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
+  if (partNumber.length > 15) { showAlert(alertEl, "error", "Part Number must be 15 characters or fewer."); return; }
 
   const pending = await idbGetAllPendingItems();
   if (pending.length >= ITEM_DATA_MAX_PENDING) {
@@ -3093,7 +3181,7 @@ async function saveItemDataLocally() {
     binNumber: bin,
     physicalQuantity: qty,
     category: selectedItemDataCategory,
-    partNumber: selectedItemDataPartNumber,
+    partNumber: partNumber,
     photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType })),
     photoCount: itemDataCapturedPhotos.length,
     createdAt: Date.now()
@@ -3186,7 +3274,7 @@ async function loadItemPhotosForUpdate() {
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
   try {
-    const data = await callApi("getItemPhotos", { itemName: selectedItemUpdateItem });
+    const data = await callApiWithProgress("getItemPhotos", { itemName: selectedItemUpdateItem }, "Loading photos...", 10);
     if (data.success) {
       renderItemUpdatePhotos(data.photos || []);
       document.getElementById("item-update-results").style.display = "block";
@@ -3207,8 +3295,7 @@ function renderItemUpdatePhotos(photos) {
   photos.forEach(p => {
     const div = document.createElement("div");
     div.className = "item-photo-thumb";
-    const thumbUrl = "https://drive.google.com/uc?export=view&id=" + p.id;
-    div.innerHTML = '<img src="' + thumbUrl + '" onerror="this.style.display=\'none\'">' +
+    div.innerHTML = photoImgHtml(p) +
       '<button type="button" class="remove-photo-btn" onclick="deleteItemUpdatePhoto(\'' + p.id + '\')">&times;</button>';
     container.appendChild(div);
   });
@@ -3346,41 +3433,6 @@ async function submitNewCategory() {
   }
 }
 
-function resetAddPartNumberScreen() {
-  document.getElementById("new-partnumber").value = "";
-  document.getElementById("btn-add-partnumber").style.display = "block";
-  document.getElementById("add-partnumber-post-save").style.display = "none";
-  hideAlert(document.getElementById("alert-add-partnumber"));
-}
-
-async function submitNewPartNumber() {
-  const alertEl = document.getElementById("alert-add-partnumber");
-  const btn = document.getElementById("btn-add-partnumber");
-  hideAlert(alertEl);
-
-  const partNumber = document.getElementById("new-partnumber").value.trim();
-  if (!partNumber) { showAlert(alertEl, "error", "Please enter a Part Number."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("addPartNumber", { partNumber: partNumber });
-    if (data.success) {
-      showAlert(alertEl, "success", "Part Number \"" + partNumber + "\" added.");
-      if (navigator.vibrate) navigator.vibrate(100);
-      btn.style.display = "none";
-      document.getElementById("add-partnumber-post-save").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to add Part Number.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to add Part Number: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Add";
-    hideBusyOverlay();
-  }
-}
-
 // ============================================================
 // ITEM VIEWER (read-only)
 // ============================================================
@@ -3423,7 +3475,7 @@ async function loadItemViewerData() {
   document.getElementById("item-viewer-results").style.display = "none";
 
   try {
-    const data = await callApi("getItemFullData", { itemName: selectedItemViewerItem });
+    const data = await callApiWithProgress("getItemFullData", { itemName: selectedItemViewerItem }, "Loading item data...", 10);
     if (data.success) {
       renderItemViewerResults(data.locationData, data.photos || []);
       document.getElementById("item-viewer-results").style.display = "block";
@@ -3461,10 +3513,261 @@ function renderItemViewerResults(loc, photos) {
     photos.forEach(p => {
       const div = document.createElement("div");
       div.className = "item-viewer-photo-full";
-      const thumbUrl = "https://drive.google.com/uc?export=view&id=" + p.id;
-      div.innerHTML = '<img src="' + thumbUrl + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<p style=color:var(--muted);font-size:12px;padding:10px>Photo could not load</p>\'">';
+      div.innerHTML = photoImgHtml(p);
       thumbs.appendChild(div);
     });
+  }
+}
+
+// ============================================================
+// AUDIT (online: updates only Physical Quantity on an existing item)
+// ============================================================
+async function loadAuditableItems() {
+  try {
+    const data = await callApi("getAuditableItems", {});
+    if (data.success) auditItemsList = data.items || [];
+  } catch (e) { /* search will just show no results if this failed */ }
+}
+
+function resetAuditScreen() {
+  resetDropdownSelections();
+  selectedAuditItem = ""; auditCurrentQty = "";
+  document.getElementById("audititem-search").value = "";
+  const b = document.getElementById("audititem-badge");
+  if (b) { b.classList.remove("show"); b.textContent = ""; }
+  document.getElementById("audit-fields").style.display = "none";
+  document.getElementById("audit-qty").value = "";
+  hideAlert(document.getElementById("alert-audit-select"));
+  hideAlert(document.getElementById("alert-audit-save"));
+  document.getElementById("btn-audit-save").style.display = "block";
+  document.getElementById("audit-post-save").style.display = "none";
+}
+
+// Resolves the typed text against the known auditable-item list (case-
+// insensitive), same resilient pattern used elsewhere for item search.
+function confirmAuditItemSelection() {
+  const alertEl = document.getElementById("alert-audit-select");
+  hideAlert(alertEl);
+  const typed = document.getElementById("audititem-search").value.trim();
+  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
+
+  const match = auditItemsList.find(m => m.toLowerCase() === typed.toLowerCase());
+  if (!match) {
+    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any existing item on file.");
+    return;
+  }
+
+  selectedAuditItem = match;
+  document.getElementById("audititem-search").value = match;
+  const badge = document.getElementById("audititem-badge");
+  badge.textContent = "Selected: " + match;
+  badge.classList.add("show");
+  loadAuditCurrentQty();
+}
+
+async function loadAuditCurrentQty() {
+  const alertEl = document.getElementById("alert-audit-select");
+  try {
+    const data = await callApi("checkItemHasPhotos", { itemName: selectedAuditItem });
+    if (data.success && data.existing) {
+      auditCurrentQty = data.existing.physicalQuantity || "";
+      document.getElementById("audit-current-qty").textContent = "Current Physical Quantity: " + (auditCurrentQty || "\u2014");
+      document.getElementById("audit-qty").value = "";
+      document.getElementById("audit-fields").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", "Could not load current quantity for this item.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+async function submitAuditData() {
+  const alertEl = document.getElementById("alert-audit-save");
+  const btn = document.getElementById("btn-audit-save");
+  hideAlert(alertEl);
+
+  const qty = document.getElementById("audit-qty").value;
+  if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("submitAudit", { itemName: selectedAuditItem, username: currentUser, physicalQuantity: qty });
+    if (data.success) {
+      showAlert(alertEl, "success", "Physical Quantity updated.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      btn.style.display = "none";
+      document.getElementById("audit-post-save").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to update.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to update: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Save";
+    hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// EMPLOYEE INCENTIVE (offline: fill locally, upload pending days)
+// ============================================================
+let incentiveNamesList = [];
+let incentiveSelections = {}; // { name: "half" | "full" }
+const INCENTIVE_MAX_PENDING = 5;
+
+async function loadIncentiveNames() {
+  try {
+    const data = await callApi("getIncentiveNames", {});
+    if (data.success) incentiveNamesList = data.names || [];
+  } catch (e) { /* list will just be empty if this failed - user can Refresh */ }
+}
+
+function resetIncentiveScreen() {
+  incentiveSelections = {};
+  const today = new Date();
+  document.getElementById("incentive-date").value = today.toISOString().slice(0, 10);
+  hideAlert(document.getElementById("alert-incentive"));
+  document.getElementById("btn-incentive-save").style.display = "block";
+  document.getElementById("incentive-post-save").style.display = "none";
+  renderIncentiveEmployeeList();
+  loadIncentivePendingList();
+}
+
+function renderIncentiveEmployeeList() {
+  const container = document.getElementById("incentive-employee-list");
+  container.innerHTML = "";
+  document.getElementById("incentive-count").textContent = incentiveNamesList.length + " employee(s)";
+
+  incentiveNamesList.forEach(name => {
+    const sel = incentiveSelections[name]; // undefined | "half" | "full"
+    const safeName = name.replace(/'/g, "\\'");
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.cssText = "padding:10px 14px;margin-bottom:8px";
+    row.innerHTML =
+      '<div style="font-size:14px;font-weight:600;margin-bottom:8px">' + escHtml(name) + '</div>' +
+      '<div style="display:flex;gap:16px">' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;margin:0">' +
+      '<input type="checkbox" style="width:18px;height:18px" ' + (sel === "half" ? "checked" : "") +
+      ' onchange="setIncentiveSelection(\'' + safeName + '\', \'half\', this.checked)"> Half Day</label>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;margin:0">' +
+      '<input type="checkbox" style="width:18px;height:18px" ' + (sel === "full" ? "checked" : "") +
+      ' onchange="setIncentiveSelection(\'' + safeName + '\', \'full\', this.checked)"> Full Day</label>' +
+      '</div>';
+    container.appendChild(row);
+  });
+}
+
+// Mutually exclusive: checking one clears the other for that employee.
+function setIncentiveSelection(name, type, checked) {
+  if (checked) {
+    incentiveSelections[name] = type;
+  } else if (incentiveSelections[name] === type) {
+    delete incentiveSelections[name];
+  }
+  renderIncentiveEmployeeList();
+}
+
+function formatDateDDMMYYYY(isoDate) {
+  const parts = isoDate.split("-"); // <input type="date"> gives YYYY-MM-DD
+  if (parts.length !== 3) return "";
+  return parts[2] + parts[1] + parts[0];
+}
+
+async function saveIncentiveLocally() {
+  const alertEl = document.getElementById("alert-incentive");
+  hideAlert(alertEl);
+
+  const isoDate = document.getElementById("incentive-date").value;
+  if (!isoDate) { showAlert(alertEl, "error", "Please select a Date."); return; }
+
+  const entries = Object.keys(incentiveSelections).map(name => ({
+    name: name, half: incentiveSelections[name] === "half", full: incentiveSelections[name] === "full"
+  }));
+  if (entries.length === 0) { showAlert(alertEl, "error", "Please select at least one employee (Half Day or Full Day)."); return; }
+
+  if (getIncentivePendingList().length >= INCENTIVE_MAX_PENDING) {
+    showAlert(alertEl, "error", "You already have " + INCENTIVE_MAX_PENDING + " day(s) waiting to upload. Upload at least one before adding more.");
+    return;
+  }
+
+  const record = {
+    localId: "incentive_" + Date.now(),
+    dateStr: formatDateDDMMYYYY(isoDate),
+    selections: entries,
+    createdAt: Date.now()
+  };
+  localStorage.setItem("incentive_pending_" + record.localId, JSON.stringify(record));
+
+  showToast("Saved on this device.");
+  if (navigator.vibrate) navigator.vibrate(100);
+  document.getElementById("btn-incentive-save").style.display = "none";
+  document.getElementById("incentive-post-save").style.display = "block";
+  loadIncentivePendingList();
+}
+
+// ---- localStorage-based pending storage (plain text data, no photos here) ----
+function getIncentivePendingList() {
+  const list = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || key.indexOf("incentive_pending_") !== 0) continue;
+    try {
+      const record = JSON.parse(localStorage.getItem(key));
+      if (record) list.push(record);
+    } catch (e) { /* skip corrupted entry */ }
+  }
+  list.sort((a, b) => a.createdAt - b.createdAt);
+  return list;
+}
+
+function loadIncentivePendingList() {
+  const container = document.getElementById("incentive-pending-list");
+  const countEl = document.getElementById("incentive-pending-count");
+  container.innerHTML = "";
+
+  const pending = getIncentivePendingList();
+  countEl.textContent = pending.length === 0 ? "Nothing waiting to upload." : pending.length + " of " + INCENTIVE_MAX_PENDING + " slot(s) used";
+
+  pending.forEach(record => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    const names = record.selections.map(s => s.name + " (" + (s.half ? "Half" : "Full") + " Day)").join(", ");
+    card.innerHTML = '<div class="task-title">' + escHtml(record.dateStr) + '</div>' +
+      '<div class="task-sub">' + escHtml(names) + '</div>' +
+      '<button class="btn btn-success" style="margin-top:10px" id="btn-incentiveupload-' + record.localId + '" onclick="uploadPendingIncentive(\'' + record.localId + '\')">Upload</button>' +
+      '<div class="alert" id="alert-incentiveupload-' + record.localId + '"></div>';
+    container.appendChild(card);
+  });
+}
+
+async function uploadPendingIncentive(localId) {
+  const btn = document.getElementById("btn-incentiveupload-" + localId);
+  const alertEl = document.getElementById("alert-incentiveupload-" + localId);
+  hideAlert(alertEl);
+
+  const record = getIncentivePendingList().find(r => r.localId === localId);
+  if (!record) { loadIncentivePendingList(); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await callApiWithProgress("submitIncentiveData", {
+      dateStr: record.dateStr, selections: record.selections
+    }, "Uploading " + record.dateStr + "...", 70);
+    if (data.success) {
+      showToast(record.dateStr + " uploaded (" + data.savedCount + " row(s)) and removed from this device.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      localStorage.removeItem("incentive_pending_" + localId);
+      loadIncentivePendingList();
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+      btn.disabled = false; btn.innerHTML = "Upload";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
+    btn.disabled = false; btn.innerHTML = "Upload";
   }
 }
 
@@ -3475,9 +3778,24 @@ function showAlert(el, type, msg) { el.className = "alert alert-" + type + " sho
 function hideAlert(el) { el.className = "alert"; el.textContent = ""; }
 function escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
-// ============================================================
-// REMEMBERED DEVICE - skip login if this device already has a saved session
-// ============================================================
+// Google's drive.google.com/uc?export=view links are unreliable for direct
+// <img> embedding (Google has tightened hotlinking behavior on that domain
+// over time, even for "anyone with link" files). This lh3.googleusercontent.com
+// pattern is the same CDN Drive itself uses for previews/thumbnails and is
+// far more consistent. The size suffix also requests an appropriately-sized
+// version instead of the full original, which loads noticeably faster.
+// Renders a photo from the base64 data URI the backend now returns directly
+// (fetched server-side from Drive) - this has no dependency on Drive's public
+// link-sharing/hotlink behavior, which was the source of "photo could not
+// load" failures with the old URL-based approach.
+function photoImgHtml(p, extraClass) {
+  if (!p || !p.dataUrl) {
+    return '<div style="width:100%;height:100%;min-height:60px;display:flex;align-items:center;justify-content:center;' +
+      'color:var(--muted);font-size:11px;text-align:center;padding:6px">Photo unavailable</div>';
+  }
+  return '<img src="' + p.dataUrl + '" loading="lazy" class="' + (extraClass || "") + '">';
+}
+
 // ============================================================
 // REMEMBERED DEVICE - skip login if this device already has a saved session,
 // but always re-verify with the server first (catches admin changes:
