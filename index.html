@@ -257,6 +257,58 @@
     </div>
   </div>
 
+  <!-- SCREEN: DAMAGED ITEMS (fully independent from Transfer/Move Order's scanner) -->
+  <div class="screen" id="screen-damaged-items">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Damaged Items</span>
+    </div>
+
+    <div class="cam-overlay" id="damaged-cam-permission-prompt">
+      <div class="icon">&#128247;</div>
+      <h3>Camera Permission Required</h3>
+      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and start scanning.</p>
+      <div class="steps-list">
+        <p>1. Tap "Allow Camera Access" below</p>
+        <p>2. Tap Allow when your browser asks</p>
+        <p>3. Scanner starts automatically</p>
+      </div>
+      <button class="btn btn-primary" onclick="damagedRequestCameraAndStart()">Allow Camera Access</button>
+    </div>
+
+    <div id="damaged-qr-reader" class="cam-box"></div>
+    <div class="scan-btn-row" id="damaged-scan-controls" style="display:none">
+      <button class="btn btn-outline" onclick="damagedToggleTorch()" id="damaged-btn-torch">&#128294; Torch</button>
+    </div>
+
+    <div class="cam-overlay" id="damaged-cam-error-box" style="display:none">
+      <div class="icon">&#128683;</div>
+      <h3>Camera Blocked</h3>
+      <p style="color:var(--muted);font-size:13px">Camera access was denied.</p>
+      <div class="steps-list">
+        <p>1. Tap the lock icon in your browser's address bar</p>
+        <p>2. Set Camera permission to Allow</p>
+        <p>3. Come back and tap Try Again</p>
+      </div>
+      <button class="btn btn-primary" onclick="damagedRetryCamera()">Try Again</button>
+    </div>
+
+    <div id="damaged-qr-scanned-section" style="display:none">
+      <div class="qr-result">&#10003; QR Code Scanned: <span id="damaged-qr-value-display"></span></div>
+      <div class="card">
+        <label>Quantity</label>
+        <input type="number" id="damaged-input-quantity" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
+      </div>
+
+      <button class="btn btn-success" id="btn-damaged-submit" onclick="submitDamagedItemData()">Submit to Sheet</button>
+      <div class="alert" id="alert-damaged-submit"></div>
+      <div id="damaged-post-submit" style="display:none;margin-top:4px">
+        <button class="btn btn-success" onclick="damagedSubmitNewResponse()">Submit New Response</button>
+        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SCREEN: OUTSIDE LABOR -->
   <div class="screen" id="screen-labor">
     <div class="topbar">
@@ -889,6 +941,7 @@ const MODULE_META = {
   "Mark Task as Completed": { icon: "&#127919;", desc: "Close out assigned tasks" },
   "PDI Viewer": { icon: "&#128196;", desc: "View and export a machine's full PDI" },
   "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" },
+  "Damaged Items": { icon: "&#128128;", desc: "Scan and log damaged items" },
   "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" },
   "Add Rack Number": { icon: "&#127959;", desc: "Add a new Rack Number to the Parts list" },
   "Add New Category": { icon: "&#128193;", desc: "Add a new Category to the Parts list" },
@@ -1278,6 +1331,10 @@ async function openModule(mod) {
     await loadStockItems();
     resetPurchaseOrderScreen();
     showScreen("screen-purchase-order");
+  } else if (mod === "Damaged Items") {
+    resetDamagedItemsScreen();
+    showScreen("screen-damaged-items");
+    damagedCheckCameraPermission();
   } else if (mod === "Item Data") {
     await loadDropdownData();
     resetItemDataScreen();
@@ -1555,6 +1612,122 @@ async function submitScanData() {
 function submitNewScanResponse() {
   resetScanScreen();
   startScanner();
+}
+
+// ============================================================
+// DAMAGED ITEMS (fully independent camera/scan state from Transfer/Move
+// Order, deliberately not shared, so nothing here can affect those modules)
+// ============================================================
+let damagedQrCode = null;
+let damagedScannerRunning = false;
+let damagedTorchOn = false;
+let damagedScannedQR = "";
+
+function resetDamagedItemsScreen() {
+  damagedScannedQR = "";
+  document.getElementById("damaged-qr-scanned-section").style.display = "none";
+  document.getElementById("damaged-cam-error-box").style.display = "none";
+  document.getElementById("damaged-scan-controls").style.display = "none";
+  document.getElementById("damaged-qr-reader").style.display = "none";
+  document.getElementById("btn-damaged-submit").style.display = "block";
+  document.getElementById("damaged-post-submit").style.display = "none";
+  hideAlert(document.getElementById("alert-damaged-submit"));
+  document.getElementById("damaged-input-quantity").value = "";
+}
+
+function damagedCheckCameraPermission() {
+  document.getElementById("damaged-cam-permission-prompt").style.display = "block";
+}
+
+function damagedRequestCameraAndStart() {
+  document.getElementById("damaged-cam-permission-prompt").style.display = "none";
+  damagedStartScanner();
+}
+
+function damagedStartScanner() {
+  if (damagedScannerRunning) return;
+  document.getElementById("damaged-qr-reader").innerHTML = "";
+  document.getElementById("damaged-qr-reader").style.display = "block";
+  document.getElementById("damaged-scan-controls").style.display = "flex";
+  damagedQrCode = new Html5Qrcode("damaged-qr-reader");
+  damagedQrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+    damagedOnScanSuccess,
+    () => {}
+  ).then(() => { damagedScannerRunning = true; }).catch(err => { damagedHandleCameraError(err); });
+}
+
+function damagedStopScanner() {
+  if (damagedQrCode && damagedScannerRunning) {
+    damagedQrCode.stop().then(() => { damagedScannerRunning = false; }).catch(() => { damagedScannerRunning = false; });
+  }
+}
+
+function damagedHandleCameraError(err) {
+  document.getElementById("damaged-qr-reader").style.display = "none";
+  document.getElementById("damaged-scan-controls").style.display = "none";
+  document.getElementById("damaged-cam-error-box").style.display = "block";
+}
+
+function damagedRetryCamera() {
+  document.getElementById("damaged-cam-error-box").style.display = "none";
+  document.getElementById("damaged-cam-permission-prompt").style.display = "block";
+}
+
+function damagedOnScanSuccess(decodedText) {
+  damagedStopScanner();
+  damagedScannedQR = decodedText;
+  document.getElementById("damaged-qr-value-display").textContent = decodedText;
+  document.getElementById("damaged-qr-reader").style.display = "none";
+  document.getElementById("damaged-scan-controls").style.display = "none";
+  document.getElementById("damaged-qr-scanned-section").style.display = "block";
+  if (navigator.vibrate) navigator.vibrate(100);
+}
+
+// Torch (flashlight) - Android Chrome only; silently no-op on unsupported browsers (e.g. iOS Safari)
+async function damagedToggleTorch() {
+  if (!damagedQrCode || !damagedScannerRunning) return;
+  try {
+    damagedTorchOn = !damagedTorchOn;
+    await damagedQrCode.applyVideoConstraints({ advanced: [{ torch: damagedTorchOn }] });
+  } catch (e) {
+    damagedTorchOn = false; // not supported on this device/browser
+  }
+}
+
+async function submitDamagedItemData() {
+  const alertEl = document.getElementById("alert-damaged-submit");
+  const btn = document.getElementById("btn-damaged-submit");
+  const qty = parseInt(document.getElementById("damaged-input-quantity").value, 10);
+  hideAlert(alertEl);
+
+  if (!damagedScannedQR) { showAlert(alertEl, "error", "No QR code scanned."); return; }
+  if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be 1 or more."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("submitDamagedItem", { username: currentUser, qrCode: damagedScannedQR, quantity: qty });
+    if (data.success) {
+      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      btn.style.display = "none";
+      document.getElementById("damaged-post-submit").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+    hideBusyOverlay();
+  }
+}
+
+function damagedSubmitNewResponse() {
+  resetDamagedItemsScreen();
+  damagedStartScanner();
 }
 
 // ============================================================
@@ -3492,12 +3665,13 @@ function renderItemViewerResults(loc, photos) {
   if (!loc) {
     card.innerHTML = '<p style="color:var(--muted);font-size:14px">No location/quantity data on file yet for this item.</p>';
   } else {
+    const displayQty = loc.updatedPhyQty ? loc.updatedPhyQty : loc.physicalQuantity;
     card.innerHTML =
       '<div style="font-size:15px;font-weight:700;margin-bottom:8px">' + escHtml(selectedItemViewerItem) + '</div>' +
       '<div style="font-size:13px;line-height:1.9">' +
       'Rack Number: <strong>' + escHtml(loc.rackNumber || "\u2014") + '</strong><br>' +
       'Bin Number: <strong>' + escHtml(loc.binNumber || "\u2014") + '</strong><br>' +
-      'Physical Quantity: <strong>' + escHtml(loc.physicalQuantity || "\u2014") + '</strong><br>' +
+      'Physical Quantity: <strong>' + escHtml(displayQty || "\u2014") + '</strong><br>' +
       'Category: <strong>' + escHtml(loc.category || "\u2014") + '</strong><br>' +
       'Part Number: <strong>' + escHtml(loc.partNumber || "\u2014") + '</strong><br>' +
       'Last Updated By: <strong>' + escHtml(loc.username || "\u2014") + '</strong><br>' +
@@ -3752,7 +3926,7 @@ async function uploadPendingIncentive(localId) {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
   try {
     const data = await callApiWithProgress("submitIncentiveData", {
-      dateStr: record.dateStr, selections: record.selections
+      dateStr: record.dateStr, selections: record.selections, username: currentUser
     }, "Uploading " + record.dateStr + "...", 70);
     if (data.success) {
       showToast(record.dateStr + " uploaded (" + data.savedCount + " row(s)) and removed from this device.");
