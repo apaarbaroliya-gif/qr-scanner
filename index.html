@@ -3845,7 +3845,7 @@ function setIncentiveSelection(name, type, checked) {
 function formatDateDDMMYYYY(isoDate) {
   const parts = isoDate.split("-"); // <input type="date"> gives YYYY-MM-DD
   if (parts.length !== 3) return "";
-  return parts[2] + parts[1] + parts[0];
+  return parts[2] + "/" + parts[1] + "/" + parts[0];
 }
 
 async function saveIncentiveLocally() {
