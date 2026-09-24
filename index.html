@@ -182,172 +182,13 @@
     <button class="btn btn-outline" style="margin-top:24px" onclick="logout()">Logout</button>
   </div>
 
-  <!-- SCREEN: SCAN (Transfer Order / Move Order) -->
-  <div class="screen" id="screen-scan">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title" id="scan-title">Transfer Order</span>
-    </div>
-
-    <div class="cam-overlay" id="cam-permission-prompt">
-      <div class="icon">&#128247;</div>
-      <h3>Camera Permission Required</h3>
-      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and start scanning.</p>
-      <div class="steps-list">
-        <p>1. Tap "Allow Camera Access" below</p>
-        <p>2. Tap Allow when your browser asks</p>
-        <p>3. Scanner starts automatically</p>
-      </div>
-      <button class="btn btn-primary" onclick="requestCameraAndStart()">Allow Camera Access</button>
-    </div>
-
-    <div id="qr-reader" class="cam-box"></div>
-    <div class="scan-btn-row" id="scan-controls" style="display:none">
-      <button class="btn btn-outline" onclick="toggleTorch()" id="btn-torch">&#128294; Torch</button>
-    </div>
-
-    <div class="cam-overlay" id="cam-error-box" style="display:none">
-      <div class="icon">&#128683;</div>
-      <h3 id="cam-err-title">Camera Blocked</h3>
-      <p id="cam-err-msg" style="color:var(--muted);font-size:13px">Camera access was denied.</p>
-      <div class="steps-list">
-        <p>1. Tap the lock icon in your browser's address bar</p>
-        <p>2. Set Camera permission to Allow</p>
-        <p>3. Come back and tap Try Again</p>
-      </div>
-      <button class="btn btn-primary" onclick="retryCamera()">Try Again</button>
-    </div>
-
-    <div id="qr-scanned-section" style="display:none">
-      <div class="qr-result">&#10003; QR Code Scanned: <span id="qr-value-display"></span></div>
-      <div class="card">
-        <label>Quantity</label>
-        <input type="number" id="input-quantity" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
-
-        <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
-        <div class="search-wrap">
-          <input type="text" id="machine-search" autocomplete="off" inputmode="numeric"
-            placeholder="Type to search..." oninput="filterDropdown('machine')"
-            onfocus="filterDropdown('machine')" onblur="onDropdownBlur('machine')">
-          <div class="search-dropdown" id="machine-dropdown"></div>
-        </div>
-        <div class="selected-badge" id="machine-badge"></div>
-
-        <div id="group-out-machine" style="display:none">
-          <label>OUT Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
-          <div class="search-wrap">
-            <input type="text" id="outmachine-search" autocomplete="off" inputmode="numeric"
-              placeholder="Type to search..." oninput="filterDropdown('outmachine')"
-              onfocus="filterDropdown('outmachine')" onblur="onDropdownBlur('outmachine')">
-            <div class="search-dropdown" id="outmachine-dropdown"></div>
-          </div>
-          <div class="selected-badge" id="outmachine-badge"></div>
-
-          <label>Reason</label>
-          <select id="select-reason"><option value="">Select Reason</option></select>
-        </div>
-      </div>
-
-      <button class="btn btn-success" id="btn-submit-scan" onclick="submitScanData()">Submit to Sheet</button>
-      <div class="alert" id="alert-submit-scan"></div>
-      <div id="scan-post-submit" style="display:none;margin-top:4px">
-        <button class="btn btn-success" onclick="submitNewScanResponse()">Submit New Response</button>
-        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SCREEN: DAMAGED ITEMS (fully independent from Transfer/Move Order's scanner) -->
-  <div class="screen" id="screen-damaged-items">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Damaged Items</span>
-    </div>
-
-    <div class="cam-overlay" id="damaged-cam-permission-prompt">
-      <div class="icon">&#128247;</div>
-      <h3>Camera Permission Required</h3>
-      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and start scanning.</p>
-      <div class="steps-list">
-        <p>1. Tap "Allow Camera Access" below</p>
-        <p>2. Tap Allow when your browser asks</p>
-        <p>3. Scanner starts automatically</p>
-      </div>
-      <button class="btn btn-primary" onclick="damagedRequestCameraAndStart()">Allow Camera Access</button>
-    </div>
-
-    <div id="damaged-qr-reader" class="cam-box"></div>
-    <div class="scan-btn-row" id="damaged-scan-controls" style="display:none">
-      <button class="btn btn-outline" onclick="damagedToggleTorch()" id="damaged-btn-torch">&#128294; Torch</button>
-    </div>
-
-    <div class="cam-overlay" id="damaged-cam-error-box" style="display:none">
-      <div class="icon">&#128683;</div>
-      <h3>Camera Blocked</h3>
-      <p style="color:var(--muted);font-size:13px">Camera access was denied.</p>
-      <div class="steps-list">
-        <p>1. Tap the lock icon in your browser's address bar</p>
-        <p>2. Set Camera permission to Allow</p>
-        <p>3. Come back and tap Try Again</p>
-      </div>
-      <button class="btn btn-primary" onclick="damagedRetryCamera()">Try Again</button>
-    </div>
-
-    <div id="damaged-qr-scanned-section" style="display:none">
-      <div class="qr-result">&#10003; QR Code Scanned: <span id="damaged-qr-value-display"></span></div>
-      <div class="card">
-        <label>Quantity</label>
-        <input type="number" id="damaged-input-quantity" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
-      </div>
-
-      <button class="btn btn-success" id="btn-damaged-submit" onclick="submitDamagedItemData()">Submit to Sheet</button>
-      <div class="alert" id="alert-damaged-submit"></div>
-      <div id="damaged-post-submit" style="display:none;margin-top:4px">
-        <button class="btn btn-success" onclick="damagedSubmitNewResponse()">Submit New Response</button>
-        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SCREEN: OUTSIDE LABOR -->
-  <div class="screen" id="screen-labor">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Outside Labor Entry</span>
-    </div>
-    <div class="card">
-      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
-      <div class="search-wrap">
-        <input type="text" id="labormachine-search" autocomplete="off" inputmode="numeric"
-          placeholder="Type to search..." oninput="filterDropdown('labormachine')"
-          onfocus="filterDropdown('labormachine')" onblur="onDropdownBlur('labormachine')">
-        <div class="search-dropdown" id="labormachine-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="labormachine-badge"></div>
-
-      <label>Outside Labor</label>
-      <select id="select-outside-labor"><option value="">Select Outside Labor</option></select>
-
-      <label>Value (INR)</label>
-      <div class="cost-wrap">
-        <span class="cost-prefix">&#8377;</span>
-        <input type="number" id="input-labor-value" min="0" step="0.01" inputmode="decimal" placeholder="Enter value">
-      </div>
-    </div>
-    <button class="btn btn-success" id="btn-submit-labor" onclick="submitLaborData()">Submit to Sheet</button>
-    <div class="alert" id="alert-submit-labor"></div>
-    <div id="labor-post-submit" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="submitNewLaborResponse()">Submit New Response</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
   <!-- SCREEN: MACHINE MOVEMENT -->
   <div class="screen" id="screen-machine-movement">
     <div class="topbar">
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
       <span class="page-title">Machine Movement</span>
     </div>
+    <div class="task-count-text" style="margin-bottom:10px">Marks a machine as "Under Refurb" - sets today's date as its Workshop In Date.</div>
     <div class="card">
       <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
       <div class="search-wrap">
@@ -357,20 +198,11 @@
         <div class="search-dropdown" id="movementmachine-dropdown"></div>
       </div>
       <div class="selected-badge" id="movementmachine-badge"></div>
-
-      <label>Location</label>
-      <div class="search-wrap">
-        <input type="text" id="location-search" autocomplete="off"
-          placeholder="Type to search location..." oninput="filterDropdown('location')"
-          onfocus="filterDropdown('location')" onblur="onDropdownBlur('location')">
-        <div class="search-dropdown" id="location-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="location-badge"></div>
     </div>
-    <button class="btn btn-success" id="btn-submit-movement" onclick="submitMovementData()">Submit to Sheet</button>
+    <button class="btn btn-success" id="btn-submit-movement" onclick="submitMovementData()">Mark as Under Refurb</button>
     <div class="alert" id="alert-submit-movement"></div>
     <div id="movement-post-submit" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="submitNewMovementResponse()">Submit New Response</button>
+      <button class="btn btn-success" onclick="submitNewMovementResponse()">Mark Another</button>
       <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
     </div>
   </div>
@@ -482,82 +314,6 @@
     </div>
   </div>
 
-  <!-- SCREEN: TASK ADMIN (offline: full PDI structure loaded at once, search bar to find things) -->
-  <div class="screen" id="screen-task-admin">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Task Admin</span>
-    </div>
-    <div class="card" id="task-admin-machine-card">
-      <label>Machine Number <span style="color:var(--muted)">(search last 4 digits)</span></label>
-      <div class="search-wrap">
-        <input type="text" id="taskadminmachine-search" autocomplete="off" inputmode="numeric"
-          placeholder="Type to search..." oninput="filterDropdown('taskadminmachine')"
-          onfocus="filterDropdown('taskadminmachine')" onblur="onDropdownBlur('taskadminmachine')">
-        <div class="search-dropdown" id="taskadminmachine-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="taskadminmachine-badge"></div>
-    </div>
-    <button class="btn btn-primary" id="btn-task-admin-open" onclick="startTaskAdminOffline()">Open Task Admin</button>
-    <div class="alert" id="alert-task-admin-select"></div>
-
-    <div id="task-admin-pending-section">
-      <h4 style="margin-top:24px;margin-bottom:6px">Transfer Pending</h4>
-      <div class="task-count-text" id="taskadmin-pending-count" style="margin:0 0 8px"></div>
-      <div id="taskadmin-pending-list"></div>
-    </div>
-
-    <div id="task-admin-offline-view" style="display:none;padding-bottom:70px">
-      <div class="task-count-text" id="task-admin-machine-label"></div>
-      <div class="card">
-        <label>Search <span style="color:var(--muted)">(Section, Page, or Option)</span></label>
-        <input type="text" id="task-admin-search-bar" placeholder="Type to filter..." oninput="filterTaskAdminWidgets()">
-      </div>
-      <div id="task-admin-widgets-container"></div>
-      <button class="btn btn-success floating-save-btn" id="btn-task-admin-save" onclick="uploadTaskAdminData()">Save</button>
-      <div class="alert" id="alert-task-admin-save"></div>
-      <div id="task-admin-post-save" style="display:none;margin-top:4px">
-        <button class="btn btn-primary" onclick="taskAdminAnotherMachine()">Another Machine</button>
-        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SCREEN: TASK WIDGETS (shared by Assign Task / Mark Task as Completed / Approve Task) -->
-  <div class="screen" id="screen-task-list">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title" id="task-list-title">Assign Task</span>
-      <button class="btn-outline" style="margin-left:auto;padding:9px 12px" onclick="toggleTaskFilterPanel()">&#128269; Filter</button>
-    </div>
-
-    <div class="card task-filter-panel" id="task-filter-panel">
-      <label>Machine Number</label>
-      <div class="search-wrap">
-        <input type="text" id="taskfiltermachine-search" autocomplete="off" placeholder="Type to search (blank = all)..."
-          oninput="filterDropdown('taskfiltermachine')" onfocus="filterDropdown('taskfiltermachine')" onblur="onDropdownBlur('taskfiltermachine')">
-        <div class="search-dropdown" id="taskfiltermachine-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="taskfiltermachine-badge"></div>
-
-      <label>Section</label>
-      <div class="search-wrap">
-        <input type="text" id="taskfiltersection-search" autocomplete="off" placeholder="Type to search (blank = all)..."
-          oninput="filterDropdown('taskfiltersection')" onfocus="filterDropdown('taskfiltersection')" onblur="onDropdownBlur('taskfiltersection')">
-        <div class="search-dropdown" id="taskfiltersection-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="taskfiltersection-badge"></div>
-
-      <button class="btn btn-primary" style="margin-top:14px" onclick="applyTaskFilters()">Apply Filter</button>
-      <button class="btn btn-outline" onclick="clearTaskFilters()">Clear Filter</button>
-    </div>
-
-    <div class="task-count-text" id="task-count-text"></div>
-    <div id="task-list-container"></div>
-    <button class="btn btn-outline" id="btn-load-more-tasks" style="display:none" onclick="loadMoreTasks()">Load More</button>
-    <div class="alert" id="alert-task-list"></div>
-  </div>
-
   <!-- SCREEN: PDI VIEWER -->
   <div class="screen" id="screen-pdi-viewer">
     <div class="topbar">
@@ -581,245 +337,6 @@
       <div class="task-count-text" id="pdi-viewer-count"></div>
       <div class="card" id="pdi-viewer-list-card"></div>
       <button class="btn btn-success" onclick="downloadPdiViewerPdf()">&#128190; Save to Device (PDF)</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: PURCHASE ORDER -->
-  <div class="screen" id="screen-purchase-order">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Purchase Order</span>
-    </div>
-    <div class="card">
-      <label>Item</label>
-      <div class="search-wrap">
-        <input type="text" id="poitem-search" autocomplete="off" placeholder="Type to search item..."
-          oninput="filterDropdown('poitem')" onfocus="filterDropdown('poitem')" onblur="onDropdownBlur('poitem')">
-        <div class="search-dropdown" id="poitem-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="poitem-badge"></div>
-
-      <label>Quantity</label>
-      <input type="number" id="po-quantity" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
-    </div>
-    <button class="btn btn-success" id="btn-po-submit" onclick="submitPurchaseOrder()">Submit</button>
-    <div class="alert" id="alert-po"></div>
-    <div id="po-post-submit" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetPurchaseOrderScreen()">Add Another Item</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: ITEM DATA -->
-  <div class="screen" id="screen-item-data">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Item Data</span>
-      <button class="btn-outline" style="margin-left:auto;padding:9px 12px" onclick="showScreenAndInit('screen-item-data-update')">Update Info</button>
-    </div>
-
-    <div class="card" id="item-data-entry-card">
-      <label>Item</label>
-      <div class="search-wrap">
-        <input type="text" id="itemdataitem-search" autocomplete="off" placeholder="Type to search item..."
-          oninput="filterDropdown('itemdataitem')" onfocus="filterDropdown('itemdataitem')" onblur="onDropdownBlur('itemdataitem')">
-        <div class="search-dropdown" id="itemdataitem-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="itemdataitem-badge"></div>
-      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmItemDataItemSelection()">Next</button>
-      <div class="alert" id="alert-item-data-select"></div>
-
-      <div id="item-data-fields" style="display:none">
-        <label>Rack Number</label>
-        <div class="search-wrap">
-          <input type="text" id="itemdatarack-search" autocomplete="off" placeholder="Type to search rack..."
-            oninput="filterDropdown('itemdatarack')" onfocus="filterDropdown('itemdatarack')" onblur="onDropdownBlur('itemdatarack')">
-          <div class="search-dropdown" id="itemdatarack-dropdown"></div>
-        </div>
-        <div class="selected-badge" id="itemdatarack-badge"></div>
-
-        <label>Bin Number <span style="color:var(--muted)">(optional)</span></label>
-        <input type="number" id="itemdata-bin" min="1" step="1" inputmode="numeric" placeholder="Enter bin number">
-
-        <label>Physical Quantity</label>
-        <input type="number" id="itemdata-qty" min="1" step="1" inputmode="numeric" placeholder="Enter quantity">
-
-        <label>Category <span style="color:var(--muted)">(optional)</span></label>
-        <div class="search-wrap">
-          <input type="text" id="itemdatacategory-search" autocomplete="off" placeholder="Type to search category..."
-            oninput="filterDropdown('itemdatacategory')" onfocus="filterDropdown('itemdatacategory')" onblur="onDropdownBlur('itemdatacategory')">
-          <div class="search-dropdown" id="itemdatacategory-dropdown"></div>
-        </div>
-        <div class="selected-badge" id="itemdatacategory-badge"></div>
-
-        <label>Part Number <span style="color:var(--muted)">(optional, up to 15 characters)</span></label>
-        <input type="text" id="itemdata-partnumber" maxlength="15" placeholder="Enter Part Number">
-
-        <div id="item-data-photo-section">
-          <label style="margin-top:16px">Photos <span style="color:var(--muted)">(up to 3 total)</span></label>
-          <div class="item-photo-thumbs" id="item-data-photo-thumbs"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" id="item-camera-permission-prompt" style="display:none;text-align:center">
-      <div style="font-size:34px;margin-bottom:8px">&#128247;</div>
-      <h4>Camera Permission Required</h4>
-      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and take a photo.</p>
-      <button class="btn btn-primary" onclick="startItemDataCamera()">Allow Camera Access</button>
-    </div>
-    <div class="card" id="item-camera-error-box" style="display:none;text-align:center">
-      <div style="font-size:34px;margin-bottom:8px">&#128683;</div>
-      <h4>Camera Blocked</h4>
-      <p style="color:var(--muted);font-size:13px">Enable camera permission for this site in your browser, then try again.</p>
-      <button class="btn btn-primary" onclick="startItemDataCamera()">Try Again</button>
-      <button class="link-btn" onclick="cancelItemDataCamera()">Cancel</button>
-    </div>
-    <div id="item-camera-box" style="display:none">
-      <p style="color:var(--muted);font-size:12px;text-align:center;margin:0 0 6px">Tap the video to focus</p>
-      <video id="item-camera-video" autoplay playsinline muted onclick="focusItemDataCamera(event)"></video>
-      <div class="scan-btn-row" style="margin-top:10px">
-        <button class="btn btn-outline" onclick="toggleItemDataTorch()" id="btn-item-data-torch">&#128294; Torch</button>
-        <button class="btn btn-primary" onclick="captureItemDataPhoto()">Capture</button>
-        <button class="btn btn-outline" onclick="cancelItemDataCamera()">Cancel</button>
-      </div>
-    </div>
-    <div id="item-camera-preview-box" style="display:none">
-      <div class="item-viewer-photo-full"><img id="item-camera-preview-img"></div>
-      <div class="scan-btn-row">
-        <button class="btn btn-outline" onclick="retakeItemDataPhoto()">Retake</button>
-        <button class="btn btn-success" onclick="useItemDataPhoto()">Use This Photo</button>
-      </div>
-    </div>
-
-    <button class="btn btn-success" id="btn-item-data-save" style="display:none" onclick="saveItemDataLocally()">Save Locally</button>
-    <div class="alert" id="alert-item-data"></div>
-    <div id="item-data-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetItemDataEntryForm()">Add Another Item</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-
-    <h4 style="margin-top:24px;margin-bottom:6px">Pending on This Device</h4>
-    <div class="task-count-text" id="item-data-pending-count" style="margin:0 0 8px"></div>
-    <div id="item-data-pending-list"></div>
-  </div>
-
-  <!-- SCREEN: ITEM DATA - UPDATE INFO -->
-  <div class="screen" id="screen-item-data-update">
-    <div class="topbar">
-      <button class="btn-outline" onclick="showScreenAndInit('screen-item-data')">&larr; Back</button>
-      <span class="page-title">Update Info</span>
-    </div>
-    <div class="card">
-      <label>Item</label>
-      <div class="search-wrap">
-        <input type="text" id="itemupdateitem-search" autocomplete="off" placeholder="Type to search item..."
-          oninput="filterDropdown('itemupdateitem')" onfocus="filterDropdown('itemupdateitem')" onblur="onDropdownBlur('itemupdateitem')">
-        <div class="search-dropdown" id="itemupdateitem-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="itemupdateitem-badge"></div>
-    </div>
-    <button class="btn btn-primary" id="btn-item-update-load" onclick="loadItemPhotosForUpdate()">Load Photos</button>
-    <div class="alert" id="alert-item-update"></div>
-
-    <div id="item-update-results" style="display:none">
-      <div class="task-count-text" id="item-update-count"></div>
-      <div class="item-photo-thumbs" id="item-update-thumbs"></div>
-      <div class="alert" id="alert-item-update-action" style="margin-top:10px"></div>
-    </div>
-  </div>
-
-  <!-- SCREEN: ADD RACK NUMBER -->
-  <div class="screen" id="screen-add-rack">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Add Rack Number</span>
-    </div>
-    <div class="card">
-      <label>New Rack Number <span style="color:var(--muted)">(up to 10 characters)</span></label>
-      <input type="text" id="new-rack-number" maxlength="10" placeholder="Enter new Rack Number">
-    </div>
-    <button class="btn btn-success" id="btn-add-rack" onclick="submitNewRackNumber()">Add</button>
-    <div class="alert" id="alert-add-rack"></div>
-    <div id="add-rack-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetAddRackScreen()">Add Another</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: ADD NEW CATEGORY -->
-  <div class="screen" id="screen-add-category">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Add New Category</span>
-    </div>
-    <div class="card">
-      <label>New Category</label>
-      <input type="text" id="new-category" placeholder="Enter new Category">
-    </div>
-    <button class="btn btn-success" id="btn-add-category" onclick="submitNewCategory()">Add</button>
-    <div class="alert" id="alert-add-category"></div>
-    <div id="add-category-post-save" style="display:none;margin-top:4px">
-      <button class="btn btn-success" onclick="resetAddCategoryScreen()">Add Another</button>
-      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: ITEM VIEWER -->
-  <div class="screen" id="screen-item-viewer">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Item Viewer</span>
-    </div>
-    <div class="card">
-      <label>Item <span style="color:var(--muted)">(type at least 3 characters)</span></label>
-      <div class="search-wrap">
-        <input type="text" id="itemviewer-search" autocomplete="off" placeholder="Type to search item..."
-          oninput="filterDropdown('itemviewer')" onfocus="filterDropdown('itemviewer')" onblur="onDropdownBlur('itemviewer')">
-        <div class="search-dropdown" id="itemviewer-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="itemviewer-badge"></div>
-      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmItemViewerSelection()">Next</button>
-    </div>
-    <div class="alert" id="alert-item-viewer"></div>
-
-    <div id="item-viewer-results" style="display:none">
-      <div class="card" id="item-viewer-details-card"></div>
-      <label style="margin-top:6px">Photos</label>
-      <div class="item-photo-thumbs" id="item-viewer-thumbs"></div>
-    </div>
-  </div>
-
-  <!-- SCREEN: AUDIT -->
-  <div class="screen" id="screen-audit">
-    <div class="topbar">
-      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
-      <span class="page-title">Audit</span>
-    </div>
-    <div class="card">
-      <label>Item <span style="color:var(--muted)">(type at least 3 characters - only existing items shown)</span></label>
-      <div class="search-wrap">
-        <input type="text" id="audititem-search" autocomplete="off" placeholder="Type to search item..."
-          oninput="filterDropdown('audititem')" onfocus="filterDropdown('audititem')" onblur="onDropdownBlur('audititem')">
-        <div class="search-dropdown" id="audititem-dropdown"></div>
-      </div>
-      <div class="selected-badge" id="audititem-badge"></div>
-      <button class="btn btn-primary" style="margin-top:10px" onclick="confirmAuditItemSelection()">Next</button>
-    </div>
-    <div class="alert" id="alert-audit-select"></div>
-
-    <div id="audit-fields" style="display:none">
-      <div class="card">
-        <div class="task-count-text" id="audit-current-qty" style="margin:0 0 10px"></div>
-        <label>New Physical Quantity</label>
-        <input type="number" id="audit-qty" min="1" step="1" inputmode="numeric" placeholder="Enter new quantity">
-      </div>
-      <button class="btn btn-success" id="btn-audit-save" onclick="submitAuditData()">Save</button>
-      <div class="alert" id="alert-audit-save"></div>
-      <div id="audit-post-save" style="display:none;margin-top:4px">
-        <button class="btn btn-success" onclick="resetAuditScreen()">Audit Another</button>
-        <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
-      </div>
     </div>
   </div>
 
@@ -849,6 +366,97 @@
     </div>
   </div>
 
+  <!-- SCREEN: MACHINE DASHBOARD -->
+  <div class="screen" id="screen-machine-dashboard">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Machine Dashboard</span>
+    </div>
+    <div class="card">
+      <label>Machine Number or RC No.</label>
+      <input type="text" id="dashboard-search" autocomplete="off" placeholder="Enter Machine Number or RC No.">
+    </div>
+    <button class="btn btn-primary" id="btn-dashboard-search" onclick="searchMachineDashboard()">Search</button>
+    <div class="alert" id="alert-dashboard"></div>
+
+    <div id="dashboard-results" style="display:none">
+      <div class="card" id="dashboard-details-card"></div>
+
+      <div class="card">
+        <label>Expected Workshop Out Date</label>
+        <input type="date" id="dashboard-expected-out-date">
+        <button class="btn btn-success" style="margin-top:10px" onclick="saveExpectedOutDate()" id="btn-dashboard-save-date">Save Date</button>
+      </div>
+      <div class="alert" id="alert-dashboard-date"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: MACHINE MOVEMENT OVERVIEW -->
+  <div class="screen" id="screen-movement-overview">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Machine Movement Overview</span>
+    </div>
+    <div class="task-count-text" style="margin-bottom:10px">Monthly machine flow, from the Month Data sheet.</div>
+    <div class="alert" id="alert-movement-overview"></div>
+    <div id="movement-overview-table"></div>
+  </div>
+
+  <!-- SCREEN: AUDIT -->
+  <div class="screen" id="screen-audit">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Audit</span>
+    </div>
+
+    <div class="card" id="audit-entry-card">
+      <label>Item <span style="color:var(--muted)">(type at least 3 characters, or scan its QR code)</span></label>
+      <div class="search-wrap">
+        <input type="text" id="audititem-search" autocomplete="off" placeholder="Type to search item..."
+          oninput="filterDropdown('audititem')" onfocus="filterDropdown('audititem')" onblur="onDropdownBlur('audititem')">
+        <div class="search-dropdown" id="audititem-dropdown"></div>
+      </div>
+      <div class="selected-badge" id="audititem-badge"></div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="auditCheckCameraPermission()">&#128247; Scan QR Code Instead</button>
+
+      <div id="audit-fields" style="display:none">
+        <label style="margin-top:16px">Physical Quantity Counted</label>
+        <input type="number" id="audit-qty" min="0" step="1" inputmode="numeric" placeholder="Enter counted quantity">
+      </div>
+    </div>
+
+    <div class="cam-overlay" id="audit-cam-permission-prompt" style="display:none">
+      <div class="icon">&#128247;</div>
+      <h3>Camera Permission Required</h3>
+      <p style="color:var(--muted);font-size:13px">Tap below to allow camera access and scan the item's QR code.</p>
+      <button class="btn btn-primary" onclick="auditRequestCameraAndStart()">Allow Camera Access</button>
+      <button class="link-btn" onclick="auditCancelCamera()">Cancel</button>
+    </div>
+    <div id="audit-qr-reader" class="cam-box" style="display:none"></div>
+    <div class="scan-btn-row" id="audit-scan-controls" style="display:none">
+      <button class="btn btn-outline" onclick="auditToggleTorch()" id="audit-btn-torch">&#128294; Torch</button>
+      <button class="btn btn-outline" onclick="auditCancelCamera()">Cancel</button>
+    </div>
+    <div class="cam-overlay" id="audit-cam-error-box" style="display:none">
+      <div class="icon">&#128683;</div>
+      <h3>Camera Blocked</h3>
+      <p style="color:var(--muted);font-size:13px">Camera access was denied.</p>
+      <button class="btn btn-primary" onclick="auditRequestCameraAndStart()">Try Again</button>
+      <button class="link-btn" onclick="auditCancelCamera()">Cancel</button>
+    </div>
+
+    <button class="btn btn-success" id="btn-audit-save" style="display:none" onclick="saveAuditLocally()">Save Locally</button>
+    <div class="alert" id="alert-audit"></div>
+    <div id="audit-post-save" style="display:none;margin-top:4px">
+      <button class="btn btn-success" onclick="resetAuditScreen()">Audit Another Item</button>
+      <button class="btn btn-outline" onclick="goHome()">Exit to Home</button>
+    </div>
+
+    <h4 style="margin-top:24px;margin-bottom:6px">Pending on This Device</h4>
+    <div class="task-count-text" id="audit-pending-count" style="margin:0 0 8px"></div>
+    <div id="audit-pending-list"></div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
@@ -876,77 +484,31 @@ const DEFAULT_MACHINE_TYPE = "3DX"; // only one Machine Type in use for now - PD
 // ============================================================
 let currentUser = null;
 let currentModules = [];
-let dropdownData = { machineNumbers: [], reasons: [], outsideLaborList: [], locations: [] };
-let currentModuleType = ""; // "Transfer Order" or "Move Order"
-let scannedQR = "";
-let selectedMachine = "", selectedOutMachine = "", selectedLaborMachine = "";
-let selectedMovementMachine = "", selectedLocation = "";
+let dropdownData = { machineNumbers: [] };
+let selectedMovementMachine = "";
 let selectedPdiMachine = "";
-// Machine PDI / Add Machine Details / Assign Task / Mark Task as Completed now each
-// use their own dedicated Machine Number column from the Dropdown sheet (loaded as
-// part of dropdownData.machinesPdi / machinesAddDetails / machinesAssignTask / machinesCompleteTask)
-
-// Task Admin state
-let selectedTaskAdminMachine = "";
-
-// Task widgets (Assign / Complete / Approve) state
-let taskWidgetsMachineList = [];   // unique machine numbers among currently-loaded widgets, for the filter search
-let taskWidgetsSectionList = [];   // unique sections among currently-loaded widgets, for the filter search
-let selectedTaskFilterMachine = "", selectedTaskFilterSection = "";
+// Machine PDI / Add Machine Details each use their own dedicated Machine
+// Number column from the Dropdown sheet (dropdownData.machinesPdi / machinesAddDetails)
 
 // PDI Viewer state
 let selectedViewerMachine = "";
 let pdiViewerItems = [];
 
-// Purchase Order state
-let selectedPoItem = "";
-
-// Item Data state
-let selectedItemDataItem = "", selectedItemDataRack = "", selectedItemUpdateItem = "", selectedItemViewerItem = "";
-let selectedAuditItem = "";
-let auditItemsList = [];
-let auditCurrentQty = "";
 let incentiveNamesList = [];
+let zohoItemList = [];
+let zohoItemListLoadedAt = 0;
+let selectedAuditItem = "";
+const AUDIT_MAX_PENDING = 5;
 let incentiveSelections = {}; // { name: { half: bool, full: bool } }
-let selectedItemDataCategory = "";
-let itemDataItemHasPhotos = false;
-let itemDataCapturedPhotos = []; // [{base64, mimeType}] for the item currently being entered
-let itemDataCameraCaptureMode = "entry"; // "entry" (save locally) or "update" (upload immediately)
-const ITEM_DATA_MAX_PENDING = 5;
-
-// Task Manager (Assign Task / Mark Task as Completed) state
-let taskMode = "";              // "assign" or "complete"
-let taskMachineType = "", taskSpreadsheetId = "";
-let allTaskWidgets = [];        // full fetched widget list for the chosen Machine Type
-let filteredTaskWidgets = [];   // after Machine Number / Section filters applied
-let taskDisplayCount = 20;
-let expandedWidgetKey = null;      // which widget's assign panel is currently open (assign mode)
-let taskAssigneeSelections = {};   // unused now (kept for compat with generic dropdown code path), safe no-op
-let taskCompleteSelections = {};   // { widgetKey: Set(rowIndex) } for Mark Task as Completed checkboxes
-let taskApproveSelections = {};    // { widgetKey: Set(rowIndex) } for Approve Task checkboxes
-let html5QrCode = null;
-let scannerRunning = false;
-let torchOn = false;
 
 const MODULE_META = {
-  "Transfer Order": { icon: "&#128230;", desc: "Standard QR scan and stock entry" },
-  "Move Order": { icon: "&#128260;", desc: "Includes Reason and OUT Machine Number" },
-  "Outside Labor": { icon: "&#128119;", desc: "No QR scan - enter labor and cost details" },
-  "Machine Movement": { icon: "&#128664;", desc: "Log machine location changes" },
+  "Machine Movement": { icon: "&#128664;", desc: "Mark a machine as Under Refurb" },
   "Machine PDI": { icon: "&#128203;", desc: "Pre-delivery inspection" },
-  "Task Admin": { icon: "&#128736;", desc: "Add pre-approved tasks directly" },
-  "Approve Task": { icon: "&#9989;", desc: "Approve pending PDI tasks" },
   "Add Machine Details": { icon: "&#128202;", desc: "Register machine details without starting a PDI" },
-  "Assign Task": { icon: "&#128204;", desc: "Assign approved tasks to employees" },
-  "Mark Task as Completed": { icon: "&#127919;", desc: "Close out assigned tasks" },
   "PDI Viewer": { icon: "&#128196;", desc: "View and export a machine's full PDI" },
-  "Purchase Order": { icon: "&#128722;", desc: "Request items from stock" },
-  "Damaged Items": { icon: "&#128128;", desc: "Scan and log damaged items" },
-  "Item Data": { icon: "&#128247;", desc: "Track item location, quantity, and photos" },
-  "Add Rack Number": { icon: "&#127959;", desc: "Add a new Rack Number to the Parts list" },
-  "Add New Category": { icon: "&#128193;", desc: "Add a new Category to the Parts list" },
-  "Item Viewer": { icon: "&#128269;", desc: "View an item's data and photos" },
-  "Audit": { icon: "&#128203;", desc: "Update physical quantity for an existing item" },
+  "Machine Dashboard": { icon: "&#128269;", desc: "Search a machine and view its status" },
+  "Machine Movement Overview": { icon: "&#128200;", desc: "Monthly machine flow overview" },
+  "Audit": { icon: "&#128269;", desc: "Count stock and compare against Zoho" },
   "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" }
 };
 
@@ -1097,10 +659,8 @@ function hideBusyOverlay() {
 const SCREEN_REFRESH_FUNCTIONS = {
   "screen-home": () => syncSessionWithServer(),
   "screen-pdi-select": () => { loadUncompletedPdiList(true); loadPdiPendingUploads(); },
-  "screen-task-admin": () => loadTaskAdminPendingTransfers(),
-  "screen-task-list": () => loadTaskWidgets(true),
-  "screen-item-data": () => loadItemDataPendingList(),
-  "screen-incentive": () => loadIncentivePendingList()
+  "screen-incentive": () => loadIncentivePendingList(),
+  "screen-audit": () => loadAuditPendingList()
 };
 let currentScreenRefreshFn = null;
 
@@ -1112,17 +672,6 @@ function showScreen(id) {
   const fab = document.getElementById("refresh-fab");
   if (id === "screen-login" || id === "screen-register") fab.classList.remove("show");
   else fab.classList.add("show");
-}
-
-// Used for in-module navigation (e.g. Item Data <-> Update Info) that needs
-// a reset call, without going through openModule/goHome.
-const SCREEN_INIT_FUNCTIONS = {
-  "screen-item-data": resetItemDataScreen,
-  "screen-item-data-update": resetItemUpdateScreen
-};
-function showScreenAndInit(id) {
-  if (typeof SCREEN_INIT_FUNCTIONS[id] === "function") SCREEN_INIT_FUNCTIONS[id]();
-  showScreen(id);
 }
 
 async function refreshAppData() {
@@ -1141,7 +690,6 @@ async function refreshAppData() {
 }
 
 function goHome() {
-  stopScanner();
   showScreen("screen-home");
   syncSessionWithServer();
 }
@@ -1289,70 +837,31 @@ function renderHome() {
 }
 
 async function openModule(mod) {
-  if (mod === "Transfer Order" || mod === "Move Order") {
-    currentModuleType = mod;
-    document.getElementById("scan-title").textContent = mod;
-    document.getElementById("group-out-machine").style.display = (mod === "Move Order") ? "block" : "none";
-    resetScanScreen();
-    showScreen("screen-scan");
-    checkCameraPermission();
-    await loadDropdownData(); // refresh Machine Number / Reason lists from the sheet
-  } else if (mod === "Outside Labor") {
-    resetLaborScreen();
-    showScreen("screen-labor");
-    await loadDropdownData(); // refresh Machine Number / Outside Labor lists from the sheet
-  } else if (mod === "Machine Movement") {
-    resetMovementScreen();
+  if (mod === "Machine Movement") {
+    await resetMovementScreen();
     showScreen("screen-machine-movement");
-    await loadDropdownData(); // refresh Machine Number / Location lists from the sheet
+  } else if (mod === "Machine Dashboard") {
+    resetMachineDashboardScreen();
+    showScreen("screen-machine-dashboard");
+  } else if (mod === "Machine Movement Overview") {
+    showScreen("screen-movement-overview");
+    await loadMonthlyMovementData();
+  } else if (mod === "Audit") {
+    resetAuditScreen();
+    showScreen("screen-audit");
+    await loadItemStockList();
   } else if (mod === "Machine PDI") {
     await loadDropdownData();
     resetPdiSelectScreen(); // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
     showScreen("screen-pdi-select");
-  } else if (mod === "Task Admin") {
-    await loadDropdownData();
-    resetTaskAdminScreen();
-    showScreen("screen-task-admin");
   } else if (mod === "Add Machine Details") {
     await loadDropdownData();
     resetAddMachineDetailsForm();
     showScreen("screen-machine-details");
-  } else if (mod === "Assign Task" || mod === "Mark Task as Completed" || mod === "Approve Task") {
-    taskMode = (mod === "Assign Task") ? "assign" : (mod === "Mark Task as Completed") ? "complete" : "approve";
-    taskMachineType = DEFAULT_MACHINE_TYPE;
-    await loadDropdownData();
-    showScreen("screen-task-list");
-    await loadTaskWidgets();
   } else if (mod === "PDI Viewer") {
     await loadDropdownData();
     resetPdiViewerScreen();
     showScreen("screen-pdi-viewer");
-  } else if (mod === "Purchase Order") {
-    await loadStockItems();
-    resetPurchaseOrderScreen();
-    showScreen("screen-purchase-order");
-  } else if (mod === "Damaged Items") {
-    resetDamagedItemsScreen();
-    showScreen("screen-damaged-items");
-    damagedCheckCameraPermission();
-  } else if (mod === "Item Data") {
-    await loadDropdownData();
-    resetItemDataScreen();
-    showScreen("screen-item-data");
-  } else if (mod === "Add Rack Number") {
-    resetAddRackScreen();
-    showScreen("screen-add-rack");
-  } else if (mod === "Add New Category") {
-    resetAddCategoryScreen();
-    showScreen("screen-add-category");
-  } else if (mod === "Item Viewer") {
-    await loadDropdownData();
-    resetItemViewerScreen();
-    showScreen("screen-item-viewer");
-  } else if (mod === "Audit") {
-    await loadAuditableItems();
-    resetAuditScreen();
-    showScreen("screen-audit");
   } else if (mod === "Employee Incentive") {
     await loadIncentiveNames();
     resetIncentiveScreen();
@@ -1370,55 +879,50 @@ function filterDropdown(which) {
   const dropdown = document.getElementById(which + "-dropdown");
   const query = inputEl.value.trim();
   dropdown.innerHTML = "";
-  const isLocation = which === "location";
-  const isEmployee = which.indexOf("assignee-") === 0;
-  const isTaskFilterMachine = which === "taskfiltermachine";
-  const isTaskFilterSection = which === "taskfiltersection";
-  const isPoItem = which === "poitem";
   const isPdiMachine = which === "pdimachine";       // Machine PDI: only machines WITH details
   const isAddMdMachine = which === "addmdmachine";   // Add Machine Details: only machines WITHOUT details
-  const isItemDataItem = which === "itemdataitem" || which === "itemupdateitem" || which === "itemviewer" || which === "audititem";
-  const isItemDataRack = which === "itemdatarack";
-  const isItemDataCategory = which === "itemdatacategory";
-  const isPlainSubstring = isLocation || isEmployee || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory;
+  const isMovementMachine = which === "movementmachine"; // Machine Movement: sourced from IJ Mega Park directly
+  const isAuditItem = which === "audititem";         // Audit: item names from Zoho Item Stock
 
-  if (isEmployee && query === "") {
-    // Field cleared - drop the stored selection for this slot too
-    const parts = which.split("-");
-    const rowIndex = parts[1], slot = parts[2];
-    if (taskAssigneeSelections[rowIndex]) delete taskAssigneeSelections[rowIndex][slot];
-    const badge = document.getElementById(which + "-badge");
-    if (badge) { badge.classList.remove("show"); badge.textContent = ""; }
-  }
-
-  const list = isEmployee ? (dropdownData.employees || [])
-    : isTaskFilterMachine ? taskWidgetsMachineList : isTaskFilterSection ? taskWidgetsSectionList
-    : isPoItem ? (dropdownData.stockItems || [])
-    : isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
-    : which === "audititem" ? auditItemsList
-    : isItemDataItem ? (dropdownData.partItems || []) : isItemDataRack ? (dropdownData.rackNumbers || [])
-    : isItemDataCategory ? (dropdownData.categories || [])
-    : isLocation ? (dropdownData.locations || []) : (dropdownData.machineNumbers || []);
-
-  // Item Name search only kicks in after 3+ characters, and shows at most 10 matches
-  if (isItemDataItem && query.length < 3) {
-    dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">Type at least 3 characters</div>';
+  if (isAuditItem) {
+    if (query.length < 3) {
+      dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">Type at least 3 characters</div>';
+      dropdown.classList.add("open");
+      return;
+    }
+    const filtered = (zohoItemList || []).filter(m => m.toLowerCase().includes(query.toLowerCase()));
+    if (filtered.length === 0) {
+      dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">No matches found</div>';
+    } else {
+      filtered.slice(0, 10).forEach(m => {
+        const div = document.createElement("div");
+        div.className = "search-option";
+        const idx = m.toLowerCase().indexOf(query.toLowerCase());
+        if (idx >= 0) {
+          div.innerHTML = escHtml(m.slice(0, idx)) + "<mark>" + escHtml(m.slice(idx, idx + query.length)) + "</mark>" + escHtml(m.slice(idx + query.length));
+        } else {
+          div.textContent = m;
+        }
+        div.onmousedown = () => selectDropdownValue(which, m);
+        dropdown.appendChild(div);
+      });
+    }
     dropdown.classList.add("open");
     return;
   }
-  const resultLimit = isItemDataItem ? 10 : 50;
 
-  const noResultsLabel = isEmployee ? "No employees found"
-    : (isTaskFilterMachine || isTaskFilterSection || isPoItem || isItemDataItem || isItemDataRack || isItemDataCategory) ? "No matches found" : "No machines found";
+  // which === "viewermachine" falls through to the default machineNumbers list below.
+  const list = isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
+    : isMovementMachine ? (megaParkMachineList || []) : (dropdownData.machineNumbers || []);
+  const noResultsLabel = "No machines found";
   const filtered = list.filter(m => {
-    if (isPlainSubstring) return m.toLowerCase().includes(query.toLowerCase());
     const last4 = m.replace(/\s/g, "").slice(-4);
     return m.toLowerCase().includes(query.toLowerCase()) || (query.length > 0 && last4.includes(query));
   });
   if (filtered.length === 0) {
     dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">' + noResultsLabel + '</div>';
   } else {
-    filtered.slice(0, resultLimit).forEach(m => {
+    filtered.slice(0, 50).forEach(m => {
       const div = document.createElement("div");
       div.className = "search-option";
       const idx = query ? m.toLowerCase().indexOf(query.toLowerCase()) : -1;
@@ -1444,38 +948,16 @@ function selectDropdownValue(which, m) {
   const badge = document.getElementById(which + "-badge");
   badge.textContent = "Selected: " + m;
   badge.classList.add("show");
-  if (which === "machine") selectedMachine = m;
-  else if (which === "outmachine") selectedOutMachine = m;
-  else if (which === "movementmachine") selectedMovementMachine = m;
-  else if (which === "location") selectedLocation = m;
+  if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
-  else if (which === "taskadminmachine") { selectedTaskAdminMachine = m; cacheTaskAdminStructureForMachine(); }
   else if (which === "addmdmachine") mdTargetMachine = m;
-  else if (which === "taskfiltermachine") selectedTaskFilterMachine = m;
-  else if (which === "taskfiltersection") selectedTaskFilterSection = m;
   else if (which === "viewermachine") selectedViewerMachine = m;
-  else if (which === "poitem") selectedPoItem = m;
-  else if (which === "itemdataitem") { selectedItemDataItem = m; onItemDataItemSelected(); }
-  else if (which === "itemdatarack") selectedItemDataRack = m;
-  else if (which === "itemdatacategory") selectedItemDataCategory = m;
-  else if (which === "itemupdateitem") selectedItemUpdateItem = m;
-  else if (which === "itemviewer") selectedItemViewerItem = m;
-  else if (which === "audititem") selectedAuditItem = m;
-  else if (which.indexOf("assignee-") === 0) {
-    const parts = which.split("-"); // ["assignee", rowIndex, slot]
-    const rowIndex = parts[1], slot = parts[2];
-    if (!taskAssigneeSelections[rowIndex]) taskAssigneeSelections[rowIndex] = {};
-    taskAssigneeSelections[rowIndex][slot] = m;
-  }
-  else selectedLaborMachine = m;
+  else if (which === "audititem") { selectedAuditItem = m; onAuditItemSelected(); }
 }
 
 function resetDropdownSelections() {
-  selectedMachine = ""; selectedOutMachine = ""; selectedLaborMachine = ""; selectedMovementMachine = ""; selectedLocation = ""; selectedPdiMachine = "";
-  selectedTaskAdminMachine = ""; selectedViewerMachine = ""; selectedPoItem = "";
-  selectedItemDataItem = ""; selectedItemDataRack = ""; selectedItemUpdateItem = ""; selectedItemViewerItem = "";
-  selectedItemDataCategory = "";
-  ["machine", "outmachine", "labormachine", "movementmachine", "location", "pdimachine", "taskadminmachine", "viewermachine", "poitem", "itemdataitem", "itemdatarack", "itemupdateitem", "itemviewer", "itemdatacategory"].forEach(which => {
+  selectedMovementMachine = ""; selectedPdiMachine = ""; selectedViewerMachine = ""; selectedAuditItem = "";
+  ["movementmachine", "pdimachine", "addmdmachine", "viewermachine", "audititem"].forEach(which => {
     const s = document.getElementById(which + "-search"); if (s) s.value = "";
     const b = document.getElementById(which + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
   });
@@ -1483,310 +965,25 @@ function resetDropdownSelections() {
 }
 
 // ============================================================
-// SCAN SCREEN (Transfer / Move Order)
-// ============================================================
-function resetScanScreen() {
-  scannedQR = "";
-  document.getElementById("qr-scanned-section").style.display = "none";
-  document.getElementById("cam-error-box").style.display = "none";
-  document.getElementById("scan-controls").style.display = "none";
-  document.getElementById("qr-reader").style.display = "none";
-  document.getElementById("btn-submit-scan").style.display = "block";
-  document.getElementById("scan-post-submit").style.display = "none";
-  resetDropdownSelections();
-  hideAlert(document.getElementById("alert-submit-scan"));
-  document.getElementById("input-quantity").value = "";
-}
-
-async function checkCameraPermission() {
-  document.getElementById("cam-permission-prompt").style.display = "block";
-}
-
-async function requestCameraAndStart() {
-  document.getElementById("cam-permission-prompt").style.display = "none";
-  startScanner();
-}
-
-function startScanner() {
-  if (scannerRunning) return;
-  document.getElementById("qr-reader").innerHTML = "";
-  document.getElementById("qr-reader").style.display = "block";
-  document.getElementById("scan-controls").style.display = "flex";
-  html5QrCode = new Html5Qrcode("qr-reader");
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-    onScanSuccess,
-    () => {}
-  ).then(() => { scannerRunning = true; }).catch(err => { handleCameraError(err); });
-}
-
-function stopScanner() {
-  if (html5QrCode && scannerRunning) {
-    html5QrCode.stop().then(() => { scannerRunning = false; }).catch(() => { scannerRunning = false; });
-  }
-}
-
-function handleCameraError(err) {
-  document.getElementById("qr-reader").style.display = "none";
-  document.getElementById("scan-controls").style.display = "none";
-  document.getElementById("cam-error-box").style.display = "block";
-}
-
-function retryCamera() {
-  document.getElementById("cam-error-box").style.display = "none";
-  document.getElementById("cam-permission-prompt").style.display = "block";
-}
-
-function onScanSuccess(decodedText) {
-  stopScanner();
-  scannedQR = decodedText;
-  document.getElementById("qr-value-display").textContent = decodedText;
-  document.getElementById("qr-reader").style.display = "none";
-  document.getElementById("scan-controls").style.display = "none";
-  document.getElementById("qr-scanned-section").style.display = "block";
-  if (navigator.vibrate) navigator.vibrate(100);
-}
-
-function rescan() {
-  document.getElementById("qr-scanned-section").style.display = "none";
-  resetDropdownSelections();
-  startScanner();
-}
-
-// Torch (flashlight) - Android Chrome only; silently no-op on unsupported browsers (e.g. iOS Safari)
-async function toggleTorch() {
-  if (!html5QrCode || !scannerRunning) return;
-  try {
-    torchOn = !torchOn;
-    await html5QrCode.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
-  } catch (e) {
-    torchOn = false; // not supported on this device/browser
-  }
-}
-
-async function submitScanData() {
-  const alertEl = document.getElementById("alert-submit-scan");
-  const btn = document.getElementById("btn-submit-scan");
-  const qty = parseInt(document.getElementById("input-quantity").value, 10);
-  const isMove = currentModuleType === "Move Order";
-  hideAlert(alertEl);
-
-  if (!scannedQR) { showAlert(alertEl, "error", "No QR code scanned."); return; }
-  if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be 1 or more."); return; }
-  if (!selectedMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-
-  let reason = "";
-  if (isMove) {
-    if (!selectedOutMachine) { showAlert(alertEl, "error", "Please select an OUT Machine Number."); return; }
-    reason = document.getElementById("select-reason").value;
-    if (!reason) { showAlert(alertEl, "error", "Please select a Reason."); return; }
-  }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const action = isMove ? "submitMoveOrder" : "submitTransferOrder";
-    const payload = {
-      username: currentUser, qrCode: scannedQR, quantity: qty, machineNumber: selectedMachine
-    };
-    if (isMove) { payload.outMachineNumber = selectedOutMachine; payload.reason = reason; }
-
-    const data = await callApi(action, payload);
-    if (data.success) {
-      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      btn.style.display = "none";
-      document.getElementById("scan-post-submit").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
-    hideBusyOverlay();
-  }
-}
-
-function submitNewScanResponse() {
-  resetScanScreen();
-  startScanner();
-}
-
-// ============================================================
-// DAMAGED ITEMS (fully independent camera/scan state from Transfer/Move
-// Order, deliberately not shared, so nothing here can affect those modules)
-// ============================================================
-let damagedQrCode = null;
-let damagedScannerRunning = false;
-let damagedTorchOn = false;
-let damagedScannedQR = "";
-
-function resetDamagedItemsScreen() {
-  damagedScannedQR = "";
-  document.getElementById("damaged-qr-scanned-section").style.display = "none";
-  document.getElementById("damaged-cam-error-box").style.display = "none";
-  document.getElementById("damaged-scan-controls").style.display = "none";
-  document.getElementById("damaged-qr-reader").style.display = "none";
-  document.getElementById("btn-damaged-submit").style.display = "block";
-  document.getElementById("damaged-post-submit").style.display = "none";
-  hideAlert(document.getElementById("alert-damaged-submit"));
-  document.getElementById("damaged-input-quantity").value = "";
-}
-
-function damagedCheckCameraPermission() {
-  document.getElementById("damaged-cam-permission-prompt").style.display = "block";
-}
-
-function damagedRequestCameraAndStart() {
-  document.getElementById("damaged-cam-permission-prompt").style.display = "none";
-  damagedStartScanner();
-}
-
-function damagedStartScanner() {
-  if (damagedScannerRunning) return;
-  document.getElementById("damaged-qr-reader").innerHTML = "";
-  document.getElementById("damaged-qr-reader").style.display = "block";
-  document.getElementById("damaged-scan-controls").style.display = "flex";
-  damagedQrCode = new Html5Qrcode("damaged-qr-reader");
-  damagedQrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-    damagedOnScanSuccess,
-    () => {}
-  ).then(() => { damagedScannerRunning = true; }).catch(err => { damagedHandleCameraError(err); });
-}
-
-function damagedStopScanner() {
-  if (damagedQrCode && damagedScannerRunning) {
-    damagedQrCode.stop().then(() => { damagedScannerRunning = false; }).catch(() => { damagedScannerRunning = false; });
-  }
-}
-
-function damagedHandleCameraError(err) {
-  document.getElementById("damaged-qr-reader").style.display = "none";
-  document.getElementById("damaged-scan-controls").style.display = "none";
-  document.getElementById("damaged-cam-error-box").style.display = "block";
-}
-
-function damagedRetryCamera() {
-  document.getElementById("damaged-cam-error-box").style.display = "none";
-  document.getElementById("damaged-cam-permission-prompt").style.display = "block";
-}
-
-function damagedOnScanSuccess(decodedText) {
-  damagedStopScanner();
-  damagedScannedQR = decodedText;
-  document.getElementById("damaged-qr-value-display").textContent = decodedText;
-  document.getElementById("damaged-qr-reader").style.display = "none";
-  document.getElementById("damaged-scan-controls").style.display = "none";
-  document.getElementById("damaged-qr-scanned-section").style.display = "block";
-  if (navigator.vibrate) navigator.vibrate(100);
-}
-
-// Torch (flashlight) - Android Chrome only; silently no-op on unsupported browsers (e.g. iOS Safari)
-async function damagedToggleTorch() {
-  if (!damagedQrCode || !damagedScannerRunning) return;
-  try {
-    damagedTorchOn = !damagedTorchOn;
-    await damagedQrCode.applyVideoConstraints({ advanced: [{ torch: damagedTorchOn }] });
-  } catch (e) {
-    damagedTorchOn = false; // not supported on this device/browser
-  }
-}
-
-async function submitDamagedItemData() {
-  const alertEl = document.getElementById("alert-damaged-submit");
-  const btn = document.getElementById("btn-damaged-submit");
-  const qty = parseInt(document.getElementById("damaged-input-quantity").value, 10);
-  hideAlert(alertEl);
-
-  if (!damagedScannedQR) { showAlert(alertEl, "error", "No QR code scanned."); return; }
-  if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be 1 or more."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("submitDamagedItem", { username: currentUser, qrCode: damagedScannedQR, quantity: qty });
-    if (data.success) {
-      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      btn.style.display = "none";
-      document.getElementById("damaged-post-submit").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
-    hideBusyOverlay();
-  }
-}
-
-function damagedSubmitNewResponse() {
-  resetDamagedItemsScreen();
-  damagedStartScanner();
-}
-
-// ============================================================
-// OUTSIDE LABOR SCREEN
-// ============================================================
-function resetLaborScreen() {
-  resetDropdownSelections();
-  document.getElementById("select-outside-labor").value = "";
-  document.getElementById("input-labor-value").value = "";
-  document.getElementById("btn-submit-labor").style.display = "block";
-  document.getElementById("labor-post-submit").style.display = "none";
-  hideAlert(document.getElementById("alert-submit-labor"));
-}
-
-async function submitLaborData() {
-  const alertEl = document.getElementById("alert-submit-labor");
-  const btn = document.getElementById("btn-submit-labor");
-  const laborOption = document.getElementById("select-outside-labor").value;
-  const value = document.getElementById("input-labor-value").value;
-  hideAlert(alertEl);
-
-  if (!selectedLaborMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-  if (!laborOption) { showAlert(alertEl, "error", "Please select Outside Labor."); return; }
-  if (value === "" || isNaN(parseFloat(value)) || parseFloat(value) <= 0) { showAlert(alertEl, "error", "Please enter a valid value."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("submitOutsideLabor", {
-      username: currentUser, machineNumber: selectedLaborMachine, outsideLabor: laborOption, value: parseFloat(value)
-    });
-    if (data.success) {
-      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      btn.style.display = "none";
-      document.getElementById("labor-post-submit").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
-    hideBusyOverlay();
-  }
-}
-
-function submitNewLaborResponse() {
-  resetLaborScreen();
-}
-
-// ============================================================
 // MACHINE MOVEMENT SCREEN
 // ============================================================
-function resetMovementScreen() {
+let megaParkMachineList = [];
+let megaParkMachineListLoadedAt = 0;
+
+async function loadMegaParkMachineList(force) {
+  if (!force && megaParkMachineList.length && (Date.now() - megaParkMachineListLoadedAt < 60 * 60 * 1000)) return;
+  try {
+    const data = await callApi("getMegaParkMachineList", {});
+    if (data.success) { megaParkMachineList = data.machines || []; megaParkMachineListLoadedAt = Date.now(); }
+  } catch (e) { /* search will just show no results if this failed */ }
+}
+
+async function resetMovementScreen() {
   resetDropdownSelections();
   document.getElementById("btn-submit-movement").style.display = "block";
   document.getElementById("movement-post-submit").style.display = "none";
   hideAlert(document.getElementById("alert-submit-movement"));
+  await loadMegaParkMachineList();
 }
 
 async function submitMovementData() {
@@ -1795,16 +992,32 @@ async function submitMovementData() {
   hideAlert(alertEl);
 
   if (!selectedMovementMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-  if (!selectedLocation) { showAlert(alertEl, "error", "Please select a Location."); return; }
 
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Checking...';
   showBusyOverlay();
   try {
-    const data = await callApi("submitMachineMovement", {
-      username: currentUser, machineNumber: selectedMovementMachine, location: selectedLocation
-    });
+    // Gate: Machine Details must be on file before marking Under Refurb
+    const check = await callApi("checkMachineDetails", { machineNumber: selectedMovementMachine });
+    if (!check.success) {
+      showAlert(alertEl, "error", check.error || "Could not check Machine Details.");
+      return;
+    }
+    if (!check.exists) {
+      hideBusyOverlay();
+      showToast("Please fill Machine Details for this machine first.");
+      mdTargetMachine = selectedMovementMachine;
+      resetAddMachineDetailsForm();
+      document.getElementById("addmdmachine-search").value = selectedMovementMachine;
+      mdTargetMachine = selectedMovementMachine;
+      const badge = document.getElementById("addmdmachine-badge");
+      badge.textContent = "Selected: " + selectedMovementMachine; badge.classList.add("show");
+      showScreen("screen-machine-details");
+      return;
+    }
+
+    const data = await callApi("submitMachineMovement", { machineNumber: selectedMovementMachine });
     if (data.success) {
-      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
+      showAlert(alertEl, "success", "Marked as Under Refurb - Workshop In Date set to today.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       btn.style.display = "none";
       document.getElementById("movement-post-submit").style.display = "block";
@@ -1814,13 +1027,159 @@ async function submitMovementData() {
   } catch (e) {
     showAlert(alertEl, "error", "Failed to save: " + e.message);
   } finally {
-    btn.disabled = false; btn.innerHTML = "Submit to Sheet";
+    btn.disabled = false; btn.innerHTML = "Mark as Under Refurb";
     hideBusyOverlay();
   }
 }
 
 function submitNewMovementResponse() {
   resetMovementScreen();
+}
+
+// ============================================================
+// MACHINE DASHBOARD (search by Machine Number or RC No., read-only details
+// + Expected Workshop Out Date, which can be set/edited)
+// ============================================================
+let dashboardMachineNumber = "";
+
+function resetMachineDashboardScreen() {
+  dashboardMachineNumber = "";
+  document.getElementById("dashboard-search").value = "";
+  document.getElementById("dashboard-results").style.display = "none";
+  hideAlert(document.getElementById("alert-dashboard"));
+  hideAlert(document.getElementById("alert-dashboard-date"));
+}
+
+async function searchMachineDashboard() {
+  const alertEl = document.getElementById("alert-dashboard");
+  const btn = document.getElementById("btn-dashboard-search");
+  hideAlert(alertEl);
+  document.getElementById("dashboard-results").style.display = "none";
+
+  const query = document.getElementById("dashboard-search").value.trim();
+  if (!query) { showAlert(alertEl, "error", "Please enter a Machine Number or RC No."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Searching...';
+  try {
+    const data = await callApi("getMachineDashboardData", { query: query });
+    if (data.success) {
+      renderMachineDashboard(data.details);
+      document.getElementById("dashboard-results").style.display = "block";
+    } else {
+      showAlert(alertEl, "error", data.error || "No machine found.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.innerHTML = "Search";
+  }
+}
+
+function renderMachineDashboard(d) {
+  dashboardMachineNumber = d.machineNumber;
+  const card = document.getElementById("dashboard-details-card");
+  const row = (label, val) => escHtml(label) + ': <strong>' + escHtml(val || "\u2014") + '</strong><br>';
+  card.innerHTML =
+    '<div style="font-size:15px;font-weight:700;margin-bottom:8px">' + escHtml(d.machineNumber) + '</div>' +
+    '<div style="font-size:13px;line-height:1.9">' +
+    row('RC No.', d.rcNo) + row('YOM', d.yom) + row('Model', d.model) + row('HP', d.hp) + row('Hour Meter', d.hour) +
+    row('Category', d.category) +
+    row('Workshop In Date', d.workshopInDate) + row('Workshop Out Date (TAT)', d.workshopOutDateTAT) +
+    row('Expected Workshop Out Date', d.expectedWorkshopOutDate) +
+    (d.bookingDate !== undefined ? row('Booking Date', d.bookingDate) : '') +
+    (d.deliveryDate !== undefined ? row('Delivery Date', d.deliveryDate) : '') +
+    (d.machineStatus !== undefined ? row('Machine Status', d.machineStatus) : '') +
+    (d.customerName !== undefined ? row('Customer Name', d.customerName) : '') +
+    (d.salesExecutive !== undefined ? row('Sales Executive', d.salesExecutive) : '') +
+    row('Refurb Budget', d.refurbBudget) + row('Zoho Refurb Total', d.zohoRefurbTotal) +
+    '</div>';
+
+  const dateInput = document.getElementById("dashboard-expected-out-date");
+  const btn = document.getElementById("btn-dashboard-save-date");
+  if (d.expectedWorkshopOutDate) {
+    // Already set - prefill so "Save Date" acts as an edit
+    const parts = d.expectedWorkshopOutDate.split("-"); // dd-MM-yyyy
+    if (parts.length === 3) dateInput.value = parts[2] + "-" + parts[1] + "-" + parts[0];
+    btn.textContent = "Update Date";
+  } else {
+    dateInput.value = "";
+    btn.textContent = "Save Date";
+  }
+}
+
+async function saveExpectedOutDate() {
+  const alertEl = document.getElementById("alert-dashboard-date");
+  const btn = document.getElementById("btn-dashboard-save-date");
+  hideAlert(alertEl);
+
+  const dateVal = document.getElementById("dashboard-expected-out-date").value;
+  if (!dateVal) { showAlert(alertEl, "error", "Please choose a date."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("setExpectedWorkshopOutDate", { machineNumber: dashboardMachineNumber, dateStr: dateVal });
+    if (data.success) {
+      showAlert(alertEl, "success", "Expected Workshop Out Date saved.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      btn.textContent = "Update Date";
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to save.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to save: " + e.message);
+  } finally {
+    btn.disabled = false;
+    hideBusyOverlay();
+  }
+}
+
+// ============================================================
+// MACHINE MOVEMENT OVERVIEW (read-only monthly rollup from Month Data)
+// ============================================================
+const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+async function loadMonthlyMovementData() {
+  const alertEl = document.getElementById("alert-movement-overview");
+  const container = document.getElementById("movement-overview-table");
+  hideAlert(alertEl);
+  container.innerHTML = '<p style="color:var(--muted);font-size:13px">Loading...</p>';
+  try {
+    const data = await callApi("getMonthlyMovementData", {});
+    if (data.success) {
+      renderMonthlyMovementTable(data.rows || []);
+    } else {
+      container.innerHTML = "";
+      showAlert(alertEl, "error", data.error || "Could not load data.");
+    }
+  } catch (e) {
+    container.innerHTML = "";
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+function renderMonthlyMovementTable(rows) {
+  const container = document.getElementById("movement-overview-table");
+  if (rows.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px">No data found.</p>';
+    return;
+  }
+  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<tr style="border-bottom:1px solid var(--border);text-align:left">' +
+    '<th style="padding:6px 8px">Month</th><th style="padding:6px 8px">IN</th><th style="padding:6px 8px">Added</th>' +
+    '<th style="padding:6px 8px">Under Refurb</th><th style="padding:6px 8px">RFS</th><th style="padding:6px 8px">Delivered</th></tr>';
+  rows.forEach(r => {
+    const monthLabel = MONTH_NAMES[Number(r.month)] || r.month;
+    html += '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:6px 8px">' + escHtml(String(monthLabel)) + '</td>' +
+      '<td style="padding:6px 8px">' + escHtml(String(r.machineIn)) + '</td>' +
+      '<td style="padding:6px 8px">' + escHtml(String(r.machineAdded)) + '</td>' +
+      '<td style="padding:6px 8px">' + escHtml(String(r.underRefurb)) + '</td>' +
+      '<td style="padding:6px 8px">' + escHtml(String(r.totalRFS)) + '</td>' +
+      '<td style="padding:6px 8px">' + escHtml(String(r.totalDelivered)) + '</td></tr>';
+  });
+  html += '</table></div>';
+  container.innerHTML = html;
 }
 
 // ============================================================
@@ -2038,276 +1397,6 @@ async function saveMachineDetailsAndContinue() {
   } finally {
     btn.disabled = false; btn.innerHTML = "Save & Continue";
     hideBusyOverlay();
-  }
-}
-
-// ============================================================
-// TASK ADMIN (offline: full PDI structure cached locally, search bar to
-// find Sections/Pages/Options, one Save uploads everything at the end.
-// Every inserted row gets Column H = "yes" - auto-approved.)
-// ============================================================
-function resetTaskAdminScreen() {
-  resetDropdownSelections();
-  selectedTaskAdminMachine = "";
-  taskAdminSession = null;
-  document.getElementById("taskadminmachine-search").value = "";
-  const b = document.getElementById("taskadminmachine-badge");
-  if (b) { b.classList.remove("show"); b.textContent = ""; }
-  document.getElementById("task-admin-machine-card").style.display = "block";
-  document.getElementById("btn-task-admin-open").style.display = "block";
-  document.getElementById("task-admin-pending-section").style.display = "block";
-  document.getElementById("task-admin-offline-view").style.display = "none";
-  document.getElementById("task-admin-post-save").style.display = "none";
-  document.getElementById("btn-task-admin-save").style.display = "block";
-  document.getElementById("task-admin-search-bar").value = "";
-  loadTaskAdminPendingTransfers();
-  hideAlert(document.getElementById("alert-task-admin-select"));
-  hideAlert(document.getElementById("alert-task-admin-save"));
-}
-
-function taskAdminAnotherMachine() {
-  resetTaskAdminScreen();
-  showScreen("screen-task-admin");
-}
-
-// ---- "Transfer Pending" widgets: locally-filled Task Admin data sitting on this device ----
-function loadTaskAdminPendingTransfers() {
-  const container = document.getElementById("taskadmin-pending-list");
-  const countEl = document.getElementById("taskadmin-pending-count");
-  container.innerHTML = "";
-
-  const pending = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key || key.indexOf("taskadmin_offline_") !== 0) continue;
-    try {
-      const session = JSON.parse(localStorage.getItem(key));
-      if (session && buildTaskAdminSectionsData(session).length > 0) pending.push(session);
-    } catch (e) { /* skip corrupted entry */ }
-  }
-
-  countEl.textContent = pending.length === 0 ? "Nothing waiting to transfer." : pending.length + " machine(s) ready";
-  pending.forEach(session => {
-    const card = document.createElement("div");
-    card.className = "task-card";
-    const ck = "taupload_" + session.machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
-    card.innerHTML = '<div class="task-title">' + escHtml(session.machineNumber) + '</div>' +
-      '<div class="task-sub" style="color:var(--warning)">Transfer Pending \u2014 filled offline, not yet transferred</div>' +
-      '<button class="btn btn-success" style="margin-top:10px" id="btn-' + ck + '" onclick="transferPendingTaskAdmin(\'' + session.machineNumber.replace(/'/g, "\\'") + '\')">Transfer</button>' +
-      '<div class="alert" id="alert-' + ck + '"></div>';
-    container.appendChild(card);
-  });
-}
-
-async function transferPendingTaskAdmin(machineNumber) {
-  const ck = "taupload_" + machineNumber.replace(/[^a-zA-Z0-9]/g, "_");
-  const btn = document.getElementById("btn-" + ck);
-  const alertEl = document.getElementById("alert-" + ck);
-  hideAlert(alertEl);
-
-  const raw = localStorage.getItem("taskadmin_offline_" + machineNumber);
-  if (!raw) { loadTaskAdminPendingTransfers(); return; }
-  let session;
-  try { session = JSON.parse(raw); } catch (e) { loadTaskAdminPendingTransfers(); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Transferring...';
-  try {
-    const data = await uploadTaskAdminSession(session, "Transferring " + machineNumber + "...");
-    if (data.success) {
-      showToast(machineNumber + " transferred and removed from this device.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      loadTaskAdminPendingTransfers();
-    } else {
-      showAlert(alertEl, "error", data.error || "Transfer failed.");
-      btn.disabled = false; btn.innerHTML = "Transfer";
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Transfer failed - check your internet connection: " + e.message);
-    btn.disabled = false; btn.innerHTML = "Transfer";
-  }
-}
-
-// Fired automatically in the background whenever a Machine Number is picked,
-// so the full structure is ready on-device even with no internet later.
-async function cacheTaskAdminStructureForMachine(withProgress) {
-  try {
-    const data = withProgress
-      ? await callApiWithProgress("getFullTaskAdminStructure", { machineType: DEFAULT_MACHINE_TYPE }, "Downloading PDI data...", 10)
-      : await callApi("getFullTaskAdminStructure", { machineType: DEFAULT_MACHINE_TYPE });
-    if (data.success) {
-      localStorage.setItem("taskadmin_cache", JSON.stringify({ pdiSpreadsheetId: data.pdiSpreadsheetId, sections: data.sections }));
-    }
-  } catch (e) { /* best effort - Open will show an error if nothing cached yet */ }
-}
-
-let taskAdminSession = null; // { machineNumber, pdiSpreadsheetId, sections: [{section, pages:[{pageName, options}]}], selections: { "section||page": [options] } }
-
-async function startTaskAdminOffline() {
-  const alertEl = document.getElementById("alert-task-admin-select");
-  hideAlert(alertEl);
-  if (!selectedTaskAdminMachine) { showAlert(alertEl, "error", "Please select a Machine Number."); return; }
-
-  const machineNumber = selectedTaskAdminMachine;
-
-  // Resume an existing offline session for this machine if one exists
-  const existingRaw = localStorage.getItem("taskadmin_offline_" + machineNumber);
-  if (existingRaw) {
-    try {
-      taskAdminSession = JSON.parse(existingRaw);
-      showTaskAdminOfflineView();
-      return;
-    } catch (e) { /* fall through to fresh start */ }
-  }
-
-  // Otherwise start fresh from the cached structure (refresh it first to be safe)
-  await cacheTaskAdminStructureForMachine(true);
-  const cachedRaw = localStorage.getItem("taskadmin_cache");
-  if (!cachedRaw) {
-    showAlert(alertEl, "error", "Offline data isn't ready yet. Make sure you're online and try again.");
-    return;
-  }
-  const cached = JSON.parse(cachedRaw);
-  if (!cached.sections || cached.sections.length === 0) {
-    showAlert(alertEl, "error", "No PDI structure found to load.");
-    return;
-  }
-
-  taskAdminSession = {
-    machineNumber: machineNumber,
-    pdiSpreadsheetId: cached.pdiSpreadsheetId,
-    sections: cached.sections,
-    selections: {}
-  };
-  saveTaskAdminSessionToStorage();
-  showTaskAdminOfflineView();
-}
-
-function saveTaskAdminSessionToStorage() {
-  if (taskAdminSession) {
-    localStorage.setItem("taskadmin_offline_" + taskAdminSession.machineNumber, JSON.stringify(taskAdminSession));
-  }
-}
-
-function showTaskAdminOfflineView() {
-  document.getElementById("task-admin-machine-card").style.display = "none";
-  document.getElementById("btn-task-admin-open").style.display = "none";
-  document.getElementById("task-admin-pending-section").style.display = "none";
-  document.getElementById("task-admin-offline-view").style.display = "block";
-  document.getElementById("task-admin-machine-label").textContent = "Machine: " + taskAdminSession.machineNumber;
-  document.getElementById("task-admin-search-bar").value = "";
-  document.getElementById("btn-task-admin-save").style.display = "block";
-  document.getElementById("task-admin-post-save").style.display = "none";
-  renderTaskAdminWidgets("");
-}
-
-function filterTaskAdminWidgets() {
-  const query = document.getElementById("task-admin-search-bar").value.trim().toLowerCase();
-  renderTaskAdminWidgets(query);
-}
-
-function taskAdminWidgetKey(section, page) { return section + "||" + page; }
-function taskAdminCssKey(key) { return key.replace(/[^a-zA-Z0-9]/g, "_"); }
-
-function renderTaskAdminWidgets(query) {
-  const container = document.getElementById("task-admin-widgets-container");
-  container.innerHTML = "";
-  let shown = 0;
-
-  taskAdminSession.sections.forEach(sectionEntry => {
-    sectionEntry.pages.forEach(page => {
-      const matchesQuery = !query ||
-        sectionEntry.section.toLowerCase().includes(query) ||
-        page.pageName.toLowerCase().includes(query) ||
-        page.options.some(o => o.toLowerCase().includes(query));
-      if (!matchesQuery) return;
-      shown++;
-
-      const key = taskAdminWidgetKey(sectionEntry.section, page.pageName);
-      const ck = taskAdminCssKey(key);
-      const selectedArr = taskAdminSession.selections[key] || [];
-
-      const card = document.createElement("div");
-      card.className = "task-card";
-      card.innerHTML = '<div class="task-title">' + escHtml(page.pageName) + '</div>' +
-        '<div class="task-sub">Section: ' + escHtml(sectionEntry.section) + '</div>' +
-        '<div id="task-admin-opts-' + ck + '" style="margin-top:8px"></div>';
-      container.appendChild(card);
-
-      const listEl = card.querySelector("#task-admin-opts-" + ck);
-      page.options.forEach((opt, optIdx) => {
-        const id = "task-admin-opt-" + ck + "-" + optIdx;
-        const row = document.createElement("div");
-        row.className = "option-item";
-        row.innerHTML = '<input type="checkbox" id="' + id + '"' + (selectedArr.indexOf(opt) >= 0 ? " checked" : "") + '>' +
-          '<label for="' + id + '">' + escHtml(opt) + '</label>';
-        row.querySelector("input").addEventListener("change", (e) => {
-          toggleTaskAdminOption(key, opt, e.target.checked);
-        });
-        listEl.appendChild(row);
-      });
-    });
-  });
-
-  if (shown === 0) {
-    container.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:14px">No matches found.</p>';
-  }
-}
-
-function toggleTaskAdminOption(key, option, isChecked) {
-  if (!taskAdminSession.selections[key]) taskAdminSession.selections[key] = [];
-  const arr = taskAdminSession.selections[key];
-  const pos = arr.indexOf(option);
-  if (isChecked && pos === -1) arr.push(option);
-  else if (!isChecked && pos >= 0) arr.splice(pos, 1);
-  saveTaskAdminSessionToStorage();
-}
-
-function buildTaskAdminSectionsData(session) {
-  return session.sections.map(sectionEntry => {
-    const pages = sectionEntry.pages.map(page => ({
-      page: page.pageName,
-      options: session.selections[taskAdminWidgetKey(sectionEntry.section, page.pageName)] || []
-    })).filter(p => p.options.length > 0);
-    return { section: sectionEntry.section, pages: pages };
-  }).filter(s => s.pages.length > 0);
-}
-
-// Core upload logic, usable both from inside the active offline-editing screen
-// and from a "Transfer Pending" widget without navigating into that screen at
-// all. Always deletes the local data for that machine on success.
-async function uploadTaskAdminSession(session, onProgressLabel) {
-  const sectionsData = buildTaskAdminSectionsData(session);
-  if (sectionsData.length === 0) return { success: false, error: "No options selected for this machine." };
-  const data = await callApiWithProgress("uploadTaskAdminData", {
-    pdiSpreadsheetId: session.pdiSpreadsheetId, username: currentUser,
-    machineNumber: session.machineNumber, sectionsData: sectionsData
-  }, onProgressLabel || "Uploading tasks...", 90);
-  if (data.success) {
-    localStorage.removeItem("taskadmin_offline_" + session.machineNumber);
-  }
-  return data;
-}
-
-async function uploadTaskAdminData() {
-  const alertEl = document.getElementById("alert-task-admin-save");
-  const btn = document.getElementById("btn-task-admin-save");
-  hideAlert(alertEl);
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  try {
-    const data = await uploadTaskAdminSession(taskAdminSession, "Uploading tasks...");
-    if (data.success) {
-      showAlert(alertEl, "success", data.savedCount + " item(s) saved and auto-approved.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      btn.style.display = "none";
-      document.getElementById("task-admin-post-save").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Save";
   }
 }
 
@@ -2557,322 +1646,6 @@ async function uploadOfflinePdi() {
 }
 
 // ============================================================
-// TASK MANAGER (Assign Task / Mark Task as Completed)
-// ============================================================
-function resetTaskManagerState() {
-  taskSpreadsheetId = "";
-  allTaskWidgets = []; filteredTaskWidgets = [];
-  taskDisplayCount = 20;
-  selectedTaskFilterMachine = ""; selectedTaskFilterSection = "";
-  expandedWidgetKey = null;
-  taskAssigneeSelections = {};
-  taskCompleteSelections = {};
-  taskApproveSelections = {};
-  const mSearch = document.getElementById("taskfiltermachine-search"); if (mSearch) mSearch.value = "";
-  const sSearch = document.getElementById("taskfiltersection-search"); if (sSearch) sSearch.value = "";
-  ["taskfiltermachine", "taskfiltersection"].forEach(w => {
-    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
-  });
-}
-
-const taskWidgetsCache = {}; // { assign: {widgets, pdiSpreadsheetId, loadedAt}, complete: {...}, approve: {...} }
-const TASK_WIDGETS_TTL_MS = 60 * 60 * 1000; // 60 minutes - same manual-refresh-first policy as dropdown data
-
-async function loadTaskWidgets(force) {
-  const alertEl = document.getElementById("alert-task-list");
-  hideAlert(alertEl);
-  resetTaskManagerState();
-
-  const titles = { assign: "Assign Task", complete: "Mark Task as Completed", approve: "Approve Task" };
-  document.getElementById("task-list-title").textContent = titles[taskMode];
-  document.getElementById("task-filter-panel").classList.remove("open");
-  document.getElementById("btn-load-more-tasks").style.display = "none";
-
-  const cached = taskWidgetsCache[taskMode];
-  if (!force && cached && (Date.now() - cached.loadedAt < TASK_WIDGETS_TTL_MS)) {
-    taskSpreadsheetId = cached.pdiSpreadsheetId;
-    allTaskWidgets = cached.widgets;
-    buildTaskFilterOptions();
-    applyTaskFilters();
-    return;
-  }
-
-  document.getElementById("task-count-text").textContent = "Loading tasks...";
-  document.getElementById("task-list-container").innerHTML = "";
-
-  const action = taskMode === "assign" ? "getAssignTaskWidgets" : taskMode === "complete" ? "getCompleteTaskWidgets" : "getApproveTaskWidgets";
-  try {
-    const data = await callApi(action, { machineType: taskMachineType });
-    if (data.success) {
-      taskSpreadsheetId = data.pdiSpreadsheetId;
-      allTaskWidgets = data.widgets || [];
-      taskWidgetsCache[taskMode] = { widgets: allTaskWidgets, pdiSpreadsheetId: taskSpreadsheetId, loadedAt: Date.now() };
-      buildTaskFilterOptions();
-      applyTaskFilters();
-    } else {
-      document.getElementById("task-count-text").textContent = "";
-      showAlert(alertEl, "error", data.error || "Could not load tasks.");
-    }
-  } catch (e) {
-    document.getElementById("task-count-text").textContent = "";
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-function buildTaskFilterOptions() {
-  if (taskMode === "assign") {
-    taskWidgetsMachineList = (dropdownData.machinesAssignTask || []).slice().sort();
-  } else if (taskMode === "complete") {
-    taskWidgetsMachineList = (dropdownData.machinesCompleteTask || []).slice().sort();
-  } else {
-    // Approve Task keeps the previous behavior: only machines that actually have widgets loaded
-    taskWidgetsMachineList = [...new Set(allTaskWidgets.map(w => w.machineNumber))].sort();
-  }
-  taskWidgetsSectionList = [...new Set(allTaskWidgets.map(w => w.section))].sort();
-}
-
-function toggleTaskFilterPanel() {
-  document.getElementById("task-filter-panel").classList.toggle("open");
-}
-
-function applyTaskFilters() {
-  filteredTaskWidgets = allTaskWidgets.filter(w =>
-    (!selectedTaskFilterMachine || w.machineNumber === selectedTaskFilterMachine) &&
-    (!selectedTaskFilterSection || w.section === selectedTaskFilterSection)
-  );
-  taskDisplayCount = 20;
-  expandedWidgetKey = null;
-  renderTaskWidgets();
-}
-
-function clearTaskFilters() {
-  selectedTaskFilterMachine = ""; selectedTaskFilterSection = "";
-  document.getElementById("taskfiltermachine-search").value = "";
-  document.getElementById("taskfiltersection-search").value = "";
-  ["taskfiltermachine", "taskfiltersection"].forEach(w => {
-    const b = document.getElementById(w + "-badge"); if (b) { b.classList.remove("show"); b.textContent = ""; }
-  });
-  applyTaskFilters();
-}
-
-function loadMoreTasks() {
-  taskDisplayCount += 20;
-  renderTaskWidgets();
-}
-
-function widgetKey(w) { return w.machineNumber + "||" + w.section + "||" + w.page; }
-
-// Removes an acted-upon widget from the live lists AND the session cache, so
-// a cache-hit on next visit doesn't show an already-handled task again.
-function removeTaskWidgetEverywhere(key) {
-  allTaskWidgets = allTaskWidgets.filter(w => widgetKey(w) !== key);
-  filteredTaskWidgets = filteredTaskWidgets.filter(w => widgetKey(w) !== key);
-  const cached = taskWidgetsCache[taskMode];
-  if (cached) cached.widgets = cached.widgets.filter(w => widgetKey(w) !== key);
-}
-
-function renderTaskWidgets() {
-  hideAlert(document.getElementById("alert-task-list"));
-  const container = document.getElementById("task-list-container");
-  container.innerHTML = "";
-
-  const visible = filteredTaskWidgets.slice(0, taskDisplayCount);
-  const total = filteredTaskWidgets.length;
-
-  document.getElementById("task-count-text").textContent =
-    total === 0 ? "No tasks found." : "Showing " + visible.length + " of " + total + " task(s)";
-  document.getElementById("btn-load-more-tasks").style.display = (taskDisplayCount < total) ? "block" : "none";
-
-  if (total === 0) {
-    const emptyMsg = taskMode === "assign" ? "No approved tasks waiting for assignment."
-      : taskMode === "complete" ? "No assigned tasks waiting to be completed."
-      : "No tasks waiting for approval.";
-    container.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:14px">' + emptyMsg + '</p>';
-    return;
-  }
-
-  visible.forEach(w => {
-    const key = widgetKey(w);
-    const card = document.createElement("div");
-    card.className = "task-card";
-    let html = '<div class="task-title">' + escHtml(w.page) + '</div>' +
-      '<div class="task-sub">Machine: ' + escHtml(w.machineNumber) + '  |  Section: ' + escHtml(w.section) + '</div>';
-
-    if (taskMode === "assign") {
-      const options = w.options || [];
-      html += '<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--text)">' +
-        options.map(o => '<li>' + escHtml(o) + '</li>').join("") + '</ul>';
-      html += '<button class="btn btn-outline" style="margin-top:10px" onclick="toggleWidgetPanel(\'' + key.replace(/'/g, "\\'") + '\')">Assign</button>';
-      html += '<div id="widget-panel-' + cssKey(key) + '" style="display:' + (expandedWidgetKey === key ? "block" : "none") + '">';
-      [1, 2, 3].forEach(slot => {
-        const which = "assignee-" + cssKey(key) + "-" + slot;
-        html += '<label style="margin-top:10px">Person ' + slot + (slot > 1 ? ' <span style="color:var(--muted);font-weight:400">(optional)</span>' : '') + '</label>' +
-          '<div class="search-wrap"><input type="text" id="' + which + '-search" autocomplete="off" placeholder="Type to search employee..."' +
-          ' oninput="filterDropdown(\'' + which + '\')" onfocus="filterDropdown(\'' + which + '\')" onblur="onDropdownBlur(\'' + which + '\')">' +
-          '<div class="search-dropdown" id="' + which + '-dropdown"></div></div>' +
-          '<div class="selected-badge" id="' + which + '-badge"></div>';
-      });
-      html += '<button class="btn btn-success" style="margin-top:8px" onclick="saveWidgetAssignment(\'' + key.replace(/'/g, "\\'") + '\')">Save Assignment</button></div>';
-    } else if (taskMode === "complete") {
-      html += '<div id="widget-options-' + cssKey(key) + '"></div>';
-      html += '<button class="btn btn-success" style="margin-top:10px" onclick="saveWidgetCompletion(\'' + key.replace(/'/g, "\\'") + '\')">Mark Selected as Completed</button>';
-    } else { // approve
-      html += '<div id="widget-approve-opts-' + cssKey(key) + '"></div>';
-      html += '<button class="btn btn-success" style="margin-top:10px" onclick="approveWidget(\'' + key.replace(/'/g, "\\'") + '\')">Approve Selected</button>';
-    }
-    card.innerHTML = html;
-    container.appendChild(card);
-
-    if (taskMode === "complete") {
-      const listEl = card.querySelector("#widget-options-" + cssKey(key));
-      (w.items || []).forEach((item, idx) => {
-        const id = "complete-opt-" + cssKey(key) + "-" + idx;
-        const row = document.createElement("div");
-        row.className = "option-item";
-        const assignees = [item.doneBy1, item.doneBy2, item.doneBy3].filter(Boolean).join(", ");
-        row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(item.option) +
-          '<br><span style="color:var(--muted);font-size:11px">Assigned to: ' + escHtml(assignees) + '</span></label>';
-        row.querySelector("input").addEventListener("change", (e) => {
-          if (!taskCompleteSelections[key]) taskCompleteSelections[key] = new Set();
-          if (e.target.checked) taskCompleteSelections[key].add(item.rowIndex);
-          else taskCompleteSelections[key].delete(item.rowIndex);
-        });
-        listEl.appendChild(row);
-      });
-    } else if (taskMode === "approve") {
-      const listEl = card.querySelector("#widget-approve-opts-" + cssKey(key));
-      const options = w.options || [];
-      const rowIndexes = w.rowIndexes || [];
-      options.forEach((opt, idx) => {
-        const rowIndex = rowIndexes[idx];
-        const id = "approve-opt-" + cssKey(key) + "-" + idx;
-        const row = document.createElement("div");
-        row.className = "option-item";
-        row.innerHTML = '<input type="checkbox" id="' + id + '"><label for="' + id + '">' + escHtml(opt) + '</label>';
-        row.querySelector("input").addEventListener("change", (e) => {
-          if (!taskApproveSelections[key]) taskApproveSelections[key] = new Set();
-          if (e.target.checked) taskApproveSelections[key].add(rowIndex);
-          else taskApproveSelections[key].delete(rowIndex);
-        });
-        listEl.appendChild(row);
-      });
-    }
-  });
-}
-
-// Widget keys can contain spaces/punctuation - make a safe id fragment for DOM element IDs
-function cssKey(key) { return key.replace(/[^a-zA-Z0-9]/g, "_"); }
-
-function toggleWidgetPanel(key) {
-  expandedWidgetKey = (expandedWidgetKey === key) ? null : key;
-  renderTaskWidgets();
-}
-
-async function saveWidgetAssignment(key) {
-  const alertEl = document.getElementById("alert-task-list");
-  hideAlert(alertEl);
-  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
-  if (!widget) return;
-  const ck = cssKey(key);
-  const e1 = document.getElementById("assignee-" + ck + "-1-search").value.trim();
-  const e2 = document.getElementById("assignee-" + ck + "-2-search").value.trim();
-  const e3 = document.getElementById("assignee-" + ck + "-3-search").value.trim();
-  const employees = [e1, e2, e3].filter(Boolean);
-
-  if (employees.length === 0) {
-    showAlert(alertEl, "error", "Please select at least one person to assign.");
-    return;
-  }
-
-  showBusyOverlay();
-  try {
-    const data = await callApi("assignTaskWidget", { pdiSpreadsheetId: taskSpreadsheetId, rowIndexes: widget.rowIndexes, employees: employees });
-    if (data.success) {
-      showToast("Task assigned.");
-      removeTaskWidgetEverywhere(key);
-      expandedWidgetKey = null;
-      renderTaskWidgets();
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to assign task.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to assign task: " + e.message);
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-async function saveWidgetCompletion(key) {
-  const alertEl = document.getElementById("alert-task-list");
-  hideAlert(alertEl);
-  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
-  if (!widget) return;
-  const selectedSet = taskCompleteSelections[key] || new Set();
-
-  if (selectedSet.size === 0) {
-    if (!confirm("No options are checked - this will mark the whole task as NOT completed and send it back to Assign Task for reassignment. Continue?")) return;
-  }
-
-  showBusyOverlay();
-  try {
-    const data = await callApi("completeTaskWidget", {
-      pdiSpreadsheetId: taskSpreadsheetId,
-      selectedRowIndexes: Array.from(selectedSet),
-      allRowIndexesInWidget: widget.items.map(i => i.rowIndex)
-    });
-    if (data.success) {
-      let msg = data.completedCount > 0 ? (data.completedCount + " option(s) marked completed.") : "No options completed.";
-      if (data.reopenedCount > 0) msg += " " + data.reopenedCount + " option(s) sent back to Assign Task.";
-      showToast(msg);
-      removeTaskWidgetEverywhere(key);
-      delete taskCompleteSelections[key];
-      renderTaskWidgets();
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to mark completed.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to mark completed: " + e.message);
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-async function approveWidget(key) {
-  const alertEl = document.getElementById("alert-task-list");
-  hideAlert(alertEl);
-  const widget = filteredTaskWidgets.find(w => widgetKey(w) === key);
-  if (!widget) return;
-  const selectedSet = taskApproveSelections[key] || new Set();
-
-  if (selectedSet.size === 0) {
-    if (!confirm("No options are checked - every option in this task will be marked \"no\" (not approved). Continue?")) return;
-  }
-
-  showBusyOverlay();
-  try {
-    const data = await callApi("approveTaskWidget", {
-      pdiSpreadsheetId: taskSpreadsheetId,
-      approvedRowIndexes: Array.from(selectedSet),
-      allRowIndexesInWidget: widget.rowIndexes
-    });
-    if (data.success) {
-      let msg = data.approvedCount > 0 ? (data.approvedCount + " option(s) approved.") : "No options approved.";
-      if (data.rejectedCount > 0) msg += " " + data.rejectedCount + " option(s) marked \"no\".";
-      showToast(msg);
-      delete taskApproveSelections[key];
-      removeTaskWidgetEverywhere(key);
-      renderTaskWidgets();
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to approve.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to approve: " + e.message);
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-// ============================================================
 // PDI VIEWER
 // ============================================================
 function resetPdiViewerScreen() {
@@ -2947,841 +1720,6 @@ function downloadPdiViewerPdf() {
 
   doc.save("PDI_" + selectedViewerMachine + ".pdf");
   showToast("PDF saved to your device.");
-}
-
-// ============================================================
-// PURCHASE ORDER
-// ============================================================
-async function loadStockItems() {
-  try {
-    const data = await callApi("getStockItems", {});
-    if (data.success) dropdownData.stockItems = data.items || [];
-  } catch (e) { /* search will just show no results if this failed */ }
-}
-
-function resetPurchaseOrderScreen() {
-  resetDropdownSelections();
-  selectedPoItem = "";
-  document.getElementById("poitem-search").value = "";
-  const b = document.getElementById("poitem-badge");
-  b.classList.remove("show"); b.textContent = "";
-  document.getElementById("po-quantity").value = "";
-  document.getElementById("btn-po-submit").style.display = "block";
-  document.getElementById("po-post-submit").style.display = "none";
-  hideAlert(document.getElementById("alert-po"));
-}
-
-async function submitPurchaseOrder() {
-  const alertEl = document.getElementById("alert-po");
-  const btn = document.getElementById("btn-po-submit");
-  hideAlert(alertEl);
-
-  const qty = parseInt(document.getElementById("po-quantity").value, 10);
-  if (!selectedPoItem) { showAlert(alertEl, "error", "Please select an item."); return; }
-  if (!qty || qty < 1) { showAlert(alertEl, "error", "Quantity must be a positive whole number."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("submitPurchaseOrder", { itemName: selectedPoItem, quantity: qty });
-    if (data.success) {
-      showAlert(alertEl, "success", "Saved to Google Sheet! This response is now locked.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      btn.style.display = "none";
-      document.getElementById("po-post-submit").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to save.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to save: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Submit";
-    hideBusyOverlay();
-  }
-}
-
-// ============================================================
-// ITEM DATA (offline: item photos via Drive, location/quantity tracker)
-// ============================================================
-
-// ---- IndexedDB (photos are too large for localStorage) ----
-const ITEMDATA_DB_NAME = "ItemDataOfflineDB";
-const ITEMDATA_STORE = "pendingItems";
-
-function openItemDataDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(ITEMDATA_DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(ITEMDATA_STORE)) {
-        db.createObjectStore(ITEMDATA_STORE, { keyPath: "localId" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function idbGetAllPendingItems() {
-  return openItemDataDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(ITEMDATA_STORE, "readonly");
-    const req = tx.objectStore(ITEMDATA_STORE).getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  }));
-}
-
-function idbSavePendingItem(record) {
-  return openItemDataDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(ITEMDATA_STORE, "readwrite");
-    tx.objectStore(ITEMDATA_STORE).put(record);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  }));
-}
-
-function idbDeletePendingItem(localId) {
-  return openItemDataDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(ITEMDATA_STORE, "readwrite");
-    tx.objectStore(ITEMDATA_STORE).delete(localId);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  }));
-}
-
-// ---- Main entry screen ----
-function resetItemDataScreen() {
-  resetDropdownSelections();
-  selectedItemDataItem = ""; selectedItemDataRack = ""; itemDataItemHasPhotos = false;
-  itemDataCapturedPhotos = []; itemDataExistingPhotos = [];
-  document.getElementById("itemdataitem-search").value = "";
-  const b = document.getElementById("itemdataitem-badge");
-  if (b) { b.classList.remove("show"); b.textContent = ""; }
-  document.getElementById("itemdata-partnumber").value = "";
-  document.getElementById("item-data-fields").style.display = "none";
-  document.getElementById("btn-item-data-save").style.display = "none";
-  document.getElementById("item-data-post-save").style.display = "none";
-  document.getElementById("item-data-entry-card").style.display = "block";
-  cancelItemDataCamera();
-  hideAlert(document.getElementById("alert-item-data"));
-  hideAlert(document.getElementById("alert-item-data-select"));
-  loadItemDataPendingList();
-}
-
-function resetItemDataEntryForm() {
-  resetItemDataScreen();
-}
-
-// Resolves whatever is currently typed in the Item field against the known
-// item list (case-insensitive exact match) and proceeds - works even if the
-// dropdown's click-to-select didn't register for some reason.
-function confirmItemDataItemSelection() {
-  const alertEl = document.getElementById("alert-item-data-select");
-  hideAlert(alertEl);
-  const typed = document.getElementById("itemdataitem-search").value.trim();
-  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
-
-  const list = dropdownData.partItems || [];
-  const match = list.find(m => m.toLowerCase() === typed.toLowerCase());
-  if (!match) {
-    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any known Item. Check the spelling, or pick from the suggestions while typing.");
-    return;
-  }
-
-  selectedItemDataItem = match;
-  document.getElementById("itemdataitem-search").value = match;
-  const badge = document.getElementById("itemdataitem-badge");
-  badge.textContent = "Selected: " + match;
-  badge.classList.add("show");
-  onItemDataItemSelected();
-}
-
-let itemDataExistingPhotos = []; // [{id, name, url}] - photos already on Drive for the selected item
-
-async function onItemDataItemSelected() {
-  const alertEl = document.getElementById("alert-item-data");
-  hideAlert(alertEl);
-  document.getElementById("item-data-fields").style.display = "none";
-  itemDataCapturedPhotos = [];
-  itemDataExistingPhotos = [];
-
-  try {
-    const data = await callApi("checkItemHasPhotos", { itemName: selectedItemDataItem });
-    if (!data.success) { showAlert(alertEl, "error", data.error || "Could not check this item."); return; }
-    itemDataItemHasPhotos = !!data.hasPhotos;
-    document.getElementById("item-data-fields").style.display = "block";
-    document.getElementById("btn-item-data-save").style.display = "block";
-
-    // Pre-fill with existing values, if any (a refill of an existing item)
-    if (data.existing) {
-      document.getElementById("itemdata-bin").value = data.existing.binNumber || "";
-      document.getElementById("itemdata-qty").value = data.existing.physicalQuantity || "";
-      document.getElementById("itemdata-partnumber").value = data.existing.partNumber || "";
-      if (data.existing.rackNumber) {
-        selectedItemDataRack = data.existing.rackNumber;
-        document.getElementById("itemdatarack-search").value = data.existing.rackNumber;
-        const rb = document.getElementById("itemdatarack-badge");
-        rb.textContent = "Selected: " + data.existing.rackNumber; rb.classList.add("show");
-      }
-      if (data.existing.category) {
-        selectedItemDataCategory = data.existing.category;
-        document.getElementById("itemdatacategory-search").value = data.existing.category;
-        const cb = document.getElementById("itemdatacategory-badge");
-        cb.textContent = "Selected: " + data.existing.category; cb.classList.add("show");
-      }
-    } else {
-      document.getElementById("itemdata-bin").value = "";
-      document.getElementById("itemdata-qty").value = "";
-      document.getElementById("itemdata-partnumber").value = "";
-    }
-
-    // Show existing photos (with delete) instead of hiding the photo section entirely
-    if (itemDataItemHasPhotos) {
-      const photoData = await callApiWithProgress("getItemPhotos", { itemName: selectedItemDataItem }, "Loading photos...", 10);
-      if (photoData.success) itemDataExistingPhotos = photoData.photos || [];
-    }
-    renderItemDataPhotoThumbnails();
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-// ---- Camera capture (live camera only, no gallery - compressed before storing) ----
-let itemDataCameraStream = null;
-let itemDataCameraTrack = null;
-let itemDataTorchOn = false;
-let itemDataPendingCapture = null; // { base64, mimeType, dataUrl } - captured but not yet confirmed
-
-async function startItemDataCamera() {
-  document.getElementById("item-camera-permission-prompt").style.display = "none";
-  document.getElementById("item-camera-error-box").style.display = "none";
-  try {
-    // Ask for continuous autofocus where the device supports it - falls back
-    // gracefully to default behavior where it doesn't (advanced constraints
-    // are treated as optional "should" hints, not hard requirements).
-    itemDataCameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment", advanced: [{ focusMode: "continuous" }] }
-    });
-    itemDataCameraTrack = itemDataCameraStream.getVideoTracks()[0];
-    itemDataTorchOn = false;
-    const video = document.getElementById("item-camera-video");
-    video.srcObject = itemDataCameraStream;
-    document.getElementById("item-camera-box").style.display = "block";
-    document.getElementById("item-camera-preview-box").style.display = "none";
-  } catch (e) {
-    document.getElementById("item-camera-error-box").style.display = "block";
-  }
-}
-
-function openItemDataCameraPrompt() {
-  if (itemDataExistingPhotos.length + itemDataCapturedPhotos.length >= 3) { showToast("Maximum 3 photos."); return; }
-  itemDataCameraCaptureMode = "entry";
-  document.getElementById("item-camera-permission-prompt").style.display = "block";
-}
-
-function cancelItemDataCamera() {
-  if (itemDataCameraStream) {
-    itemDataCameraStream.getTracks().forEach(t => t.stop());
-    itemDataCameraStream = null;
-    itemDataCameraTrack = null;
-  }
-  document.getElementById("item-camera-box").style.display = "none";
-  document.getElementById("item-camera-preview-box").style.display = "none";
-  document.getElementById("item-camera-permission-prompt").style.display = "none";
-  document.getElementById("item-camera-error-box").style.display = "none";
-  itemDataPendingCapture = null;
-}
-
-// Best-effort tap-to-focus. Support is limited to some Android browsers -
-// silently does nothing on devices/browsers that don't support it, same
-// pattern as the Torch button elsewhere in the app.
-async function focusItemDataCamera(event) {
-  if (!itemDataCameraTrack || !itemDataCameraTrack.getCapabilities) return;
-  try {
-    const caps = itemDataCameraTrack.getCapabilities();
-    if (!caps.focusMode || (caps.focusMode.indexOf("single-shot") === -1 && caps.focusMode.indexOf("manual") === -1)) return;
-    const video = document.getElementById("item-camera-video");
-    const rect = video.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    const mode = caps.focusMode.indexOf("single-shot") !== -1 ? "single-shot" : "manual";
-    await itemDataCameraTrack.applyConstraints({ advanced: [{ focusMode: mode, pointsOfInterest: [{ x: x, y: y }] }] });
-    showToast("Focusing...");
-  } catch (e) { /* not supported on this device - fine, camera keeps working normally */ }
-}
-
-async function toggleItemDataTorch() {
-  if (!itemDataCameraTrack) return;
-  const btn = document.getElementById("btn-item-data-torch");
-  try {
-    itemDataTorchOn = !itemDataTorchOn;
-    await itemDataCameraTrack.applyConstraints({ advanced: [{ torch: itemDataTorchOn }] });
-    btn.classList.toggle("btn-primary", itemDataTorchOn);
-    btn.classList.toggle("btn-outline", !itemDataTorchOn);
-  } catch (e) {
-    itemDataTorchOn = false; // not supported on this device/browser
-    showToast("Torch not supported on this device.");
-  }
-}
-
-function captureItemDataPhoto() {
-  const video = document.getElementById("item-camera-video");
-  const maxDim = 1280;
-  let w = video.videoWidth, h = video.videoHeight;
-  if (w > maxDim || h > maxDim) {
-    if (w > h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
-    else { w = Math.round(w * (maxDim / h)); h = maxDim; }
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  canvas.getContext("2d").drawImage(video, 0, 0, w, h);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.75); // compressed - keeps local storage + upload light
-  const base64 = dataUrl.split(",")[1];
-
-  // Stop the live camera and show a preview to confirm before committing
-  if (itemDataCameraStream) { itemDataCameraStream.getTracks().forEach(t => t.stop()); itemDataCameraStream = null; itemDataCameraTrack = null; }
-  itemDataPendingCapture = { base64: base64, mimeType: "image/jpeg", dataUrl: dataUrl };
-  document.getElementById("item-camera-box").style.display = "none";
-  document.getElementById("item-camera-preview-img").src = dataUrl;
-  document.getElementById("item-camera-preview-box").style.display = "block";
-}
-
-function retakeItemDataPhoto() {
-  itemDataPendingCapture = null;
-  document.getElementById("item-camera-preview-box").style.display = "none";
-  startItemDataCamera();
-}
-
-function useItemDataPhoto() {
-  if (!itemDataPendingCapture) return;
-  document.getElementById("item-camera-preview-box").style.display = "none";
-
-  if (itemDataCameraCaptureMode === "update") {
-    itemDataCapturedPhotos = [itemDataPendingCapture];
-    itemDataPendingCapture = null;
-    uploadCapturedUpdatePhoto();
-    itemDataCameraCaptureMode = "entry";
-    return;
-  }
-
-  itemDataCapturedPhotos.push(itemDataPendingCapture);
-  itemDataPendingCapture = null;
-  renderItemDataPhotoThumbnails();
-  showToast("Photo added (" + itemDataCapturedPhotos.length + " of 3).");
-}
-
-function removeItemDataPhoto(idx) {
-  itemDataCapturedPhotos.splice(idx, 1);
-  renderItemDataPhotoThumbnails();
-}
-
-function renderItemDataPhotoThumbnails() {
-  const container = document.getElementById("item-data-photo-thumbs");
-  container.innerHTML = "";
-
-  itemDataExistingPhotos.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "item-photo-thumb";
-    div.innerHTML = photoImgHtml(p) +
-      '<button type="button" class="remove-photo-btn" onclick="deleteItemDataExistingPhoto(\'' + p.id + '\')">&times;</button>';
-    container.appendChild(div);
-  });
-
-  itemDataCapturedPhotos.forEach((p, idx) => {
-    const div = document.createElement("div");
-    div.className = "item-photo-thumb";
-    div.innerHTML = '<img src="' + p.dataUrl + '"><button type="button" class="remove-photo-btn" onclick="removeItemDataPhoto(' + idx + ')">&times;</button>';
-    container.appendChild(div);
-  });
-
-  const totalCount = itemDataExistingPhotos.length + itemDataCapturedPhotos.length;
-  if (totalCount < 3) {
-    const addTile = document.createElement("div");
-    addTile.className = "item-photo-add-tile";
-    addTile.textContent = "+";
-    addTile.onclick = openItemDataCameraPrompt;
-    container.appendChild(addTile);
-  }
-}
-
-// Deletes an already-uploaded photo directly from the Item Data screen -
-// this is an immediate online action (can't be queued offline, since it
-// needs to actually remove the file from Drive right away).
-async function deleteItemDataExistingPhoto(fileId) {
-  const alertEl = document.getElementById("alert-item-data");
-  hideAlert(alertEl);
-  showBusyOverlay();
-  try {
-    const data = await callApi("deleteItemPhoto", { fileId: fileId });
-    if (data.success) {
-      showToast("Photo deleted.");
-      itemDataExistingPhotos = itemDataExistingPhotos.filter(p => p.id !== fileId);
-      renderItemDataPhotoThumbnails();
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not delete photo.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-// ---- Save locally (IndexedDB), respecting the 5-item cap ----
-async function saveItemDataLocally() {
-  const alertEl = document.getElementById("alert-item-data");
-  hideAlert(alertEl);
-
-  if (!selectedItemDataItem) { showAlert(alertEl, "error", "Please select an Item."); return; }
-  if (!selectedItemDataRack) { showAlert(alertEl, "error", "Please select a Rack Number."); return; }
-  const bin = document.getElementById("itemdata-bin").value;
-  const qty = document.getElementById("itemdata-qty").value;
-  const partNumber = document.getElementById("itemdata-partnumber").value.trim();
-  if (bin && (!/^\d+$/.test(bin) || parseInt(bin, 10) < 1)) { showAlert(alertEl, "error", "Bin Number must be a positive whole number if entered."); return; }
-  if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
-  if (partNumber.length > 15) { showAlert(alertEl, "error", "Part Number must be 15 characters or fewer."); return; }
-
-  const pending = await idbGetAllPendingItems();
-  if (pending.length >= ITEM_DATA_MAX_PENDING) {
-    showAlert(alertEl, "error", "You already have " + ITEM_DATA_MAX_PENDING + " item(s) waiting to upload. Upload at least one before adding more.");
-    return;
-  }
-
-  const record = {
-    localId: "item_" + Date.now(),
-    itemName: selectedItemDataItem,
-    rackNumber: selectedItemDataRack,
-    binNumber: bin,
-    physicalQuantity: qty,
-    category: selectedItemDataCategory,
-    partNumber: partNumber,
-    photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType })),
-    photoCount: itemDataCapturedPhotos.length,
-    createdAt: Date.now()
-  };
-
-  try {
-    await idbSavePendingItem(record);
-    showToast("Saved on this device.");
-    if (navigator.vibrate) navigator.vibrate(100);
-    document.getElementById("item-data-entry-card").style.display = "none";
-    document.getElementById("item-camera-box").style.display = "none";
-    document.getElementById("btn-item-data-save").style.display = "none";
-    document.getElementById("item-data-post-save").style.display = "block";
-    loadItemDataPendingList();
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not save locally: " + e.message);
-  }
-}
-
-// ---- Pending widgets list ----
-async function loadItemDataPendingList() {
-  const container = document.getElementById("item-data-pending-list");
-  const countEl = document.getElementById("item-data-pending-count");
-  container.innerHTML = "";
-
-  let pending = [];
-  try { pending = await idbGetAllPendingItems(); } catch (e) { /* IndexedDB unavailable - list stays empty */ }
-
-  countEl.textContent = pending.length === 0 ? "Nothing waiting to upload." : pending.length + " of " + ITEM_DATA_MAX_PENDING + " slot(s) used";
-  pending.forEach(record => {
-    const card = document.createElement("div");
-    card.className = "task-card";
-    card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
-      '<div class="task-sub">Rack: ' + escHtml(record.rackNumber) + '  |  Bin: ' + escHtml(record.binNumber || "\u2014") + '  |  Qty: ' + escHtml(record.physicalQuantity) + '</div>' +
-      (record.category || record.partNumber ? '<div class="task-meta">Category: ' + escHtml(record.category || "\u2014") + '  |  Part #: ' + escHtml(record.partNumber || "\u2014") + '</div>' : '') +
-      '<div class="task-meta">' + record.photoCount + ' photo(s) attached</div>' +
-      '<button class="btn btn-success" style="margin-top:10px" id="btn-itemupload-' + record.localId + '" onclick="uploadPendingItemData(\'' + record.localId + '\')">Upload</button>' +
-      '<div class="alert" id="alert-itemupload-' + record.localId + '"></div>';
-    container.appendChild(card);
-  });
-}
-
-async function uploadPendingItemData(localId) {
-  const btn = document.getElementById("btn-itemupload-" + localId);
-  const alertEl = document.getElementById("alert-itemupload-" + localId);
-  hideAlert(alertEl);
-
-  const pending = await idbGetAllPendingItems();
-  const record = pending.find(r => r.localId === localId);
-  if (!record) { loadItemDataPendingList(); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
-  try {
-    const data = await callApiWithProgress("uploadItemData", {
-      itemName: record.itemName, username: currentUser, rackNumber: record.rackNumber,
-      binNumber: record.binNumber, physicalQuantity: record.physicalQuantity,
-      category: record.category, partNumber: record.partNumber, photos: record.photos
-    }, "Uploading " + record.itemName + "...", 90);
-    if (data.success) {
-      showToast(record.itemName + " uploaded and removed from this device.");
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      await idbDeletePendingItem(localId);
-      loadItemDataPendingList();
-    } else {
-      showAlert(alertEl, "error", data.error || "Upload failed.");
-      btn.disabled = false; btn.innerHTML = "Upload";
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
-    btn.disabled = false; btn.innerHTML = "Upload";
-  }
-}
-
-// ---- Update Info (online: view / delete / add photos for an existing item) ----
-function resetItemUpdateScreen() {
-  resetDropdownSelections();
-  selectedItemUpdateItem = "";
-  document.getElementById("itemupdateitem-search").value = "";
-  const b = document.getElementById("itemupdateitem-badge");
-  if (b) { b.classList.remove("show"); b.textContent = ""; }
-  document.getElementById("item-update-results").style.display = "none";
-  hideAlert(document.getElementById("alert-item-update"));
-}
-
-async function loadItemPhotosForUpdate() {
-  const alertEl = document.getElementById("alert-item-update");
-  const btn = document.getElementById("btn-item-update-load");
-  hideAlert(alertEl);
-  if (!selectedItemUpdateItem) { showAlert(alertEl, "error", "Please select an Item."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Loading...';
-  try {
-    const data = await callApiWithProgress("getItemPhotos", { itemName: selectedItemUpdateItem }, "Loading photos...", 10);
-    if (data.success) {
-      renderItemUpdatePhotos(data.photos || []);
-      document.getElementById("item-update-results").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not load photos.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Load Photos";
-  }
-}
-
-function renderItemUpdatePhotos(photos) {
-  document.getElementById("item-update-count").textContent = photos.length + " of 3 photo(s)";
-  const container = document.getElementById("item-update-thumbs");
-  container.innerHTML = "";
-  photos.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "item-photo-thumb";
-    div.innerHTML = photoImgHtml(p) +
-      '<button type="button" class="remove-photo-btn" onclick="deleteItemUpdatePhoto(\'' + p.id + '\')">&times;</button>';
-    container.appendChild(div);
-  });
-  if (photos.length < 3) {
-    const addTile = document.createElement("div");
-    addTile.className = "item-photo-add-tile";
-    addTile.textContent = "+";
-    addTile.onclick = () => openItemUpdateCameraPrompt();
-    container.appendChild(addTile);
-  }
-}
-
-async function deleteItemUpdatePhoto(fileId) {
-  const alertEl = document.getElementById("alert-item-update-action");
-  hideAlert(alertEl);
-  showBusyOverlay();
-  try {
-    const data = await callApi("deleteItemPhoto", { fileId: fileId });
-    if (data.success) {
-      showToast("Photo deleted.");
-      loadItemPhotosForUpdate();
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not delete photo.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-// Update Info reuses the same camera capture UI/functions, but on successful
-// capture uploads immediately (online) instead of saving locally.
-function openItemUpdateCameraPrompt() {
-  itemDataCapturedPhotos = [];
-  document.getElementById("item-camera-permission-prompt").style.display = "block";
-  itemDataCameraCaptureMode = "update";
-}
-
-async function uploadCapturedUpdatePhoto() {
-  const alertEl = document.getElementById("alert-item-update-action");
-  hideAlert(alertEl);
-  if (itemDataCapturedPhotos.length === 0) return;
-  showBusyOverlay();
-  try {
-    const data = await callApiWithProgress("uploadItemPhotos", {
-      itemName: selectedItemUpdateItem,
-      photos: itemDataCapturedPhotos.map(p => ({ base64: p.base64, mimeType: p.mimeType }))
-    }, "Uploading photo...", 90);
-    if (data.success) {
-      showToast("Photo uploaded.");
-      itemDataCapturedPhotos = [];
-      loadItemPhotosForUpdate();
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not upload photo.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  } finally {
-    hideBusyOverlay();
-  }
-}
-
-// ============================================================
-// ADD RACK NUMBER
-// ============================================================
-function resetAddRackScreen() {
-  document.getElementById("new-rack-number").value = "";
-  document.getElementById("btn-add-rack").style.display = "block";
-  document.getElementById("add-rack-post-save").style.display = "none";
-  hideAlert(document.getElementById("alert-add-rack"));
-}
-
-async function submitNewRackNumber() {
-  const alertEl = document.getElementById("alert-add-rack");
-  const btn = document.getElementById("btn-add-rack");
-  hideAlert(alertEl);
-
-  const rackNumber = document.getElementById("new-rack-number").value.trim();
-  if (!rackNumber) { showAlert(alertEl, "error", "Please enter a Rack Number."); return; }
-  if (rackNumber.length > 10) { showAlert(alertEl, "error", "Rack Number must be 10 characters or fewer."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("addRackNumber", { rackNumber: rackNumber });
-    if (data.success) {
-      showAlert(alertEl, "success", "Rack Number \"" + rackNumber + "\" added.");
-      if (navigator.vibrate) navigator.vibrate(100);
-      btn.style.display = "none";
-      document.getElementById("add-rack-post-save").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to add Rack Number.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to add Rack Number: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Add";
-    hideBusyOverlay();
-  }
-}
-
-function resetAddCategoryScreen() {
-  document.getElementById("new-category").value = "";
-  document.getElementById("btn-add-category").style.display = "block";
-  document.getElementById("add-category-post-save").style.display = "none";
-  hideAlert(document.getElementById("alert-add-category"));
-}
-
-async function submitNewCategory() {
-  const alertEl = document.getElementById("alert-add-category");
-  const btn = document.getElementById("btn-add-category");
-  hideAlert(alertEl);
-
-  const category = document.getElementById("new-category").value.trim();
-  if (!category) { showAlert(alertEl, "error", "Please enter a Category."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("addCategory", { category: category });
-    if (data.success) {
-      showAlert(alertEl, "success", "Category \"" + category + "\" added.");
-      if (navigator.vibrate) navigator.vibrate(100);
-      btn.style.display = "none";
-      document.getElementById("add-category-post-save").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to add Category.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to add Category: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Add";
-    hideBusyOverlay();
-  }
-}
-
-// ============================================================
-// ITEM VIEWER (read-only)
-// ============================================================
-function resetItemViewerScreen() {
-  resetDropdownSelections();
-  selectedItemViewerItem = "";
-  document.getElementById("itemviewer-search").value = "";
-  const b = document.getElementById("itemviewer-badge");
-  if (b) { b.classList.remove("show"); b.textContent = ""; }
-  document.getElementById("item-viewer-results").style.display = "none";
-  hideAlert(document.getElementById("alert-item-viewer"));
-}
-
-// Resolves whatever's typed against the known item list, same resilience
-// pattern as Item Data's Next button, independent of the dropdown click.
-function confirmItemViewerSelection() {
-  const alertEl = document.getElementById("alert-item-viewer");
-  hideAlert(alertEl);
-  const typed = document.getElementById("itemviewer-search").value.trim();
-  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
-
-  const list = dropdownData.partItems || [];
-  const match = list.find(m => m.toLowerCase() === typed.toLowerCase());
-  if (!match) {
-    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any known Item.");
-    return;
-  }
-
-  selectedItemViewerItem = match;
-  document.getElementById("itemviewer-search").value = match;
-  const badge = document.getElementById("itemviewer-badge");
-  badge.textContent = "Selected: " + match;
-  badge.classList.add("show");
-  loadItemViewerData();
-}
-
-async function loadItemViewerData() {
-  const alertEl = document.getElementById("alert-item-viewer");
-  hideAlert(alertEl);
-  document.getElementById("item-viewer-results").style.display = "none";
-
-  try {
-    const data = await callApiWithProgress("getItemFullData", { itemName: selectedItemViewerItem }, "Loading item data...", 10);
-    if (data.success) {
-      renderItemViewerResults(data.locationData, data.photos || []);
-      document.getElementById("item-viewer-results").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Could not load item data.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-function renderItemViewerResults(loc, photos) {
-  const card = document.getElementById("item-viewer-details-card");
-  if (!loc) {
-    card.innerHTML = '<p style="color:var(--muted);font-size:14px">No location/quantity data on file yet for this item.</p>';
-  } else {
-    const displayQty = loc.updatedPhyQty ? loc.updatedPhyQty : loc.physicalQuantity;
-    card.innerHTML =
-      '<div style="font-size:15px;font-weight:700;margin-bottom:8px">' + escHtml(selectedItemViewerItem) + '</div>' +
-      '<div style="font-size:13px;line-height:1.9">' +
-      'Rack Number: <strong>' + escHtml(loc.rackNumber || "\u2014") + '</strong><br>' +
-      'Bin Number: <strong>' + escHtml(loc.binNumber || "\u2014") + '</strong><br>' +
-      'Physical Quantity: <strong>' + escHtml(displayQty || "\u2014") + '</strong><br>' +
-      'Category: <strong>' + escHtml(loc.category || "\u2014") + '</strong><br>' +
-      'Part Number: <strong>' + escHtml(loc.partNumber || "\u2014") + '</strong><br>' +
-      'Last Updated By: <strong>' + escHtml(loc.username || "\u2014") + '</strong><br>' +
-      'Last Updated On: <strong>' + escHtml(loc.date || "") + ' ' + escHtml(loc.timestamp || "") + '</strong>' +
-      '</div>';
-  }
-
-  const thumbs = document.getElementById("item-viewer-thumbs");
-  thumbs.innerHTML = "";
-  if (photos.length === 0) {
-    thumbs.innerHTML = '<p style="color:var(--muted);font-size:13px">No photos on file for this item.</p>';
-  } else {
-    photos.forEach(p => {
-      const div = document.createElement("div");
-      div.className = "item-viewer-photo-full";
-      div.innerHTML = photoImgHtml(p);
-      thumbs.appendChild(div);
-    });
-  }
-}
-
-// ============================================================
-// AUDIT (online: updates only Physical Quantity on an existing item)
-// ============================================================
-async function loadAuditableItems() {
-  try {
-    const data = await callApi("getAuditableItems", {});
-    if (data.success) auditItemsList = data.items || [];
-  } catch (e) { /* search will just show no results if this failed */ }
-}
-
-function resetAuditScreen() {
-  resetDropdownSelections();
-  selectedAuditItem = ""; auditCurrentQty = "";
-  document.getElementById("audititem-search").value = "";
-  const b = document.getElementById("audititem-badge");
-  if (b) { b.classList.remove("show"); b.textContent = ""; }
-  document.getElementById("audit-fields").style.display = "none";
-  document.getElementById("audit-qty").value = "";
-  hideAlert(document.getElementById("alert-audit-select"));
-  hideAlert(document.getElementById("alert-audit-save"));
-  document.getElementById("btn-audit-save").style.display = "block";
-  document.getElementById("audit-post-save").style.display = "none";
-}
-
-// Resolves the typed text against the known auditable-item list (case-
-// insensitive), same resilient pattern used elsewhere for item search.
-function confirmAuditItemSelection() {
-  const alertEl = document.getElementById("alert-audit-select");
-  hideAlert(alertEl);
-  const typed = document.getElementById("audititem-search").value.trim();
-  if (!typed) { showAlert(alertEl, "error", "Please type or select an Item first."); return; }
-
-  const match = auditItemsList.find(m => m.toLowerCase() === typed.toLowerCase());
-  if (!match) {
-    showAlert(alertEl, "error", "\"" + typed + "\" doesn't match any existing item on file.");
-    return;
-  }
-
-  selectedAuditItem = match;
-  document.getElementById("audititem-search").value = match;
-  const badge = document.getElementById("audititem-badge");
-  badge.textContent = "Selected: " + match;
-  badge.classList.add("show");
-  loadAuditCurrentQty();
-}
-
-async function loadAuditCurrentQty() {
-  const alertEl = document.getElementById("alert-audit-select");
-  try {
-    const data = await callApi("checkItemHasPhotos", { itemName: selectedAuditItem });
-    if (data.success && data.existing) {
-      auditCurrentQty = data.existing.physicalQuantity || "";
-      document.getElementById("audit-current-qty").textContent = "Current Physical Quantity: " + (auditCurrentQty || "\u2014");
-      document.getElementById("audit-qty").value = "";
-      document.getElementById("audit-fields").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", "Could not load current quantity for this item.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Could not connect to server.");
-  }
-}
-
-async function submitAuditData() {
-  const alertEl = document.getElementById("alert-audit-save");
-  const btn = document.getElementById("btn-audit-save");
-  hideAlert(alertEl);
-
-  const qty = document.getElementById("audit-qty").value;
-  if (!qty || !/^\d+$/.test(qty) || parseInt(qty, 10) < 1) { showAlert(alertEl, "error", "Physical Quantity must be a positive whole number."); return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-  showBusyOverlay();
-  try {
-    const data = await callApi("submitAudit", { itemName: selectedAuditItem, username: currentUser, physicalQuantity: qty });
-    if (data.success) {
-      showAlert(alertEl, "success", "Physical Quantity updated.");
-      if (navigator.vibrate) navigator.vibrate(100);
-      btn.style.display = "none";
-      document.getElementById("audit-post-save").style.display = "block";
-    } else {
-      showAlert(alertEl, "error", data.error || "Failed to update.");
-    }
-  } catch (e) {
-    showAlert(alertEl, "error", "Failed to update: " + e.message);
-  } finally {
-    btn.disabled = false; btn.innerHTML = "Save";
-    hideBusyOverlay();
-  }
 }
 
 // ============================================================
@@ -3933,6 +1871,210 @@ async function uploadPendingIncentive(localId) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       localStorage.removeItem("incentive_pending_" + localId);
       loadIncentivePendingList();
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+      btn.disabled = false; btn.innerHTML = "Upload";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
+    btn.disabled = false; btn.innerHTML = "Upload";
+  }
+}
+
+// ============================================================
+// AUDIT (offline: search or scan an item, record a physical count, upload
+// as a batch - only logs a "Stock Gap" row if it differs from Zoho)
+// ============================================================
+async function loadItemStockList(force) {
+  if (!force && zohoItemList.length && (Date.now() - zohoItemListLoadedAt < 60 * 60 * 1000)) return;
+  try {
+    const data = await callApiWithProgress("getItemStockList", {}, "Loading item list...", 10);
+    if (data.success) { zohoItemList = data.items || []; zohoItemListLoadedAt = Date.now(); }
+  } catch (e) { /* search will just show no results if this failed */ }
+}
+
+function resetAuditScreen() {
+  resetDropdownSelections();
+  selectedAuditItem = "";
+  document.getElementById("audit-fields").style.display = "none";
+  document.getElementById("audit-qty").value = "";
+  document.getElementById("btn-audit-save").style.display = "none";
+  document.getElementById("audit-post-save").style.display = "none";
+  document.getElementById("audit-entry-card").style.display = "block";
+  auditCancelCamera();
+  hideAlert(document.getElementById("alert-audit"));
+  loadAuditPendingList();
+}
+
+function onAuditItemSelected() {
+  document.getElementById("audit-fields").style.display = "block";
+  document.getElementById("audit-qty").value = "";
+  document.getElementById("btn-audit-save").style.display = "block";
+}
+
+// ---- QR scanning (independent camera state, same pattern as Damaged Items) ----
+let auditQrCode = null;
+let auditScannerRunning = false;
+let auditTorchOn = false;
+
+function auditCheckCameraPermission() {
+  document.getElementById("audit-cam-permission-prompt").style.display = "block";
+}
+
+function auditRequestCameraAndStart() {
+  document.getElementById("audit-cam-permission-prompt").style.display = "none";
+  document.getElementById("audit-cam-error-box").style.display = "none";
+  auditStartScanner();
+}
+
+function auditStartScanner() {
+  if (auditScannerRunning) return;
+  document.getElementById("audit-qr-reader").innerHTML = "";
+  document.getElementById("audit-qr-reader").style.display = "block";
+  document.getElementById("audit-scan-controls").style.display = "flex";
+  auditQrCode = new Html5Qrcode("audit-qr-reader");
+  auditQrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+    auditOnScanSuccess,
+    () => {}
+  ).then(() => { auditScannerRunning = true; }).catch(err => { auditHandleCameraError(); });
+}
+
+function auditStopScanner() {
+  if (auditQrCode && auditScannerRunning) {
+    auditQrCode.stop().then(() => { auditScannerRunning = false; }).catch(() => { auditScannerRunning = false; });
+  }
+}
+
+function auditHandleCameraError() {
+  document.getElementById("audit-qr-reader").style.display = "none";
+  document.getElementById("audit-scan-controls").style.display = "none";
+  document.getElementById("audit-cam-error-box").style.display = "block";
+}
+
+function auditCancelCamera() {
+  auditStopScanner();
+  document.getElementById("audit-qr-reader").style.display = "none";
+  document.getElementById("audit-scan-controls").style.display = "none";
+  document.getElementById("audit-cam-permission-prompt").style.display = "none";
+  document.getElementById("audit-cam-error-box").style.display = "none";
+}
+
+async function auditToggleTorch() {
+  if (!auditQrCode || !auditScannerRunning) return;
+  try {
+    auditTorchOn = !auditTorchOn;
+    await auditQrCode.applyVideoConstraints({ advanced: [{ torch: auditTorchOn }] });
+  } catch (e) {
+    auditTorchOn = false; // not supported on this device/browser
+  }
+}
+
+function auditOnScanSuccess(decodedText) {
+  auditCancelCamera();
+  const scanned = decodedText.trim();
+  const match = (zohoItemList || []).find(m => m.toLowerCase() === scanned.toLowerCase());
+  const alertEl = document.getElementById("alert-audit");
+  hideAlert(alertEl);
+  if (!match) {
+    showAlert(alertEl, "error", "Scanned QR (\"" + scanned + "\") doesn't match any known item in Zoho Item Stock.");
+    return;
+  }
+  document.getElementById("audititem-search").value = match;
+  const badge = document.getElementById("audititem-badge");
+  badge.textContent = "Selected: " + match;
+  badge.classList.add("show");
+  selectedAuditItem = match;
+  onAuditItemSelected();
+  if (navigator.vibrate) navigator.vibrate(100);
+}
+
+// ---- Save locally, respecting the 5-item cap ----
+async function saveAuditLocally() {
+  const alertEl = document.getElementById("alert-audit");
+  hideAlert(alertEl);
+
+  if (!selectedAuditItem) { showAlert(alertEl, "error", "Please select or scan an Item."); return; }
+  const qty = document.getElementById("audit-qty").value;
+  if (qty === "" || !/^\d+$/.test(qty)) { showAlert(alertEl, "error", "Physical Quantity must be a whole number, 0 or more."); return; }
+
+  if (getAuditPendingList().length >= AUDIT_MAX_PENDING) {
+    showAlert(alertEl, "error", "You already have " + AUDIT_MAX_PENDING + " item(s) waiting to upload. Upload at least one before adding more.");
+    return;
+  }
+
+  const record = {
+    localId: "audit_" + Date.now(),
+    itemName: selectedAuditItem,
+    physicalQuantity: qty,
+    createdAt: Date.now()
+  };
+  localStorage.setItem("audit_pending_" + record.localId, JSON.stringify(record));
+
+  showToast("Saved on this device.");
+  if (navigator.vibrate) navigator.vibrate(100);
+  document.getElementById("audit-entry-card").style.display = "none";
+  document.getElementById("btn-audit-save").style.display = "none";
+  document.getElementById("audit-post-save").style.display = "block";
+  loadAuditPendingList();
+}
+
+// ---- localStorage-based pending storage (plain text data, no photos here) ----
+function getAuditPendingList() {
+  const list = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || key.indexOf("audit_pending_") !== 0) continue;
+    try {
+      const record = JSON.parse(localStorage.getItem(key));
+      if (record) list.push(record);
+    } catch (e) { /* skip corrupted entry */ }
+  }
+  list.sort((a, b) => a.createdAt - b.createdAt);
+  return list;
+}
+
+function loadAuditPendingList() {
+  const container = document.getElementById("audit-pending-list");
+  const countEl = document.getElementById("audit-pending-count");
+  container.innerHTML = "";
+
+  const pending = getAuditPendingList();
+  countEl.textContent = pending.length === 0 ? "Nothing waiting to upload." : pending.length + " of " + AUDIT_MAX_PENDING + " slot(s) used";
+
+  pending.forEach(record => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
+      '<div class="task-sub">Physical Quantity Counted: ' + escHtml(record.physicalQuantity) + '</div>' +
+      '<button class="btn btn-success" style="margin-top:10px" id="btn-auditupload-' + record.localId + '" onclick="uploadPendingAudit(\'' + record.localId + '\')">Upload</button>' +
+      '<div class="alert" id="alert-auditupload-' + record.localId + '"></div>';
+    container.appendChild(card);
+  });
+}
+
+async function uploadPendingAudit(localId) {
+  const btn = document.getElementById("btn-auditupload-" + localId);
+  const alertEl = document.getElementById("alert-auditupload-" + localId);
+  hideAlert(alertEl);
+
+  const record = getAuditPendingList().find(r => r.localId === localId);
+  if (!record) { loadAuditPendingList(); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await callApi("submitAudit", {
+      itemName: record.itemName, username: currentUser, physicalQuantity: record.physicalQuantity
+    });
+    if (data.success) {
+      const msg = data.gapFound
+        ? record.itemName + ": gap of " + data.gap + " logged (Zoho: " + data.zohoQuantity + ", Counted: " + record.physicalQuantity + ")."
+        : record.itemName + ": matches Zoho, no gap recorded.";
+      showToast(msg);
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      localStorage.removeItem("audit_pending_" + localId);
+      loadAuditPendingList();
     } else {
       showAlert(alertEl, "error", data.error || "Upload failed.");
       btn.disabled = false; btn.innerHTML = "Upload";
