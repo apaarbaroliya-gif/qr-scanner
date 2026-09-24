@@ -374,7 +374,11 @@
     </div>
     <div class="card">
       <label>Machine Number or RC No.</label>
-      <input type="text" id="dashboard-search" autocomplete="off" placeholder="Enter Machine Number or RC No.">
+      <div class="search-wrap">
+        <input type="text" id="dashboard-search" autocomplete="off" placeholder="Type to search..."
+          oninput="filterDropdown('dashboard')" onfocus="filterDropdown('dashboard')" onblur="onDropdownBlur('dashboard')">
+        <div class="search-dropdown" id="dashboard-dropdown"></div>
+      </div>
     </div>
     <button class="btn btn-primary" id="btn-dashboard-search" onclick="searchMachineDashboard()">Search</button>
     <div class="alert" id="alert-dashboard"></div>
@@ -400,6 +404,14 @@
     <div class="task-count-text" style="margin-bottom:10px">Monthly machine flow, from the Month Data sheet.</div>
     <div class="alert" id="alert-movement-overview"></div>
     <div id="movement-overview-table"></div>
+
+    <div class="card" style="margin-top:16px">
+      <label>View details for a month</label>
+      <select id="movement-overview-month-select" onchange="renderMonthDetailCard()">
+        <option value="">Choose a month...</option>
+      </select>
+    </div>
+    <div class="card" id="movement-overview-month-detail" style="display:none"></div>
   </div>
 
   <!-- SCREEN: AUDIT -->
@@ -457,6 +469,17 @@
     <div id="audit-pending-list"></div>
   </div>
 
+  <!-- SCREEN: INVENTORY -->
+  <div class="screen" id="screen-inventory">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Inventory</span>
+    </div>
+    <div class="task-count-text" id="inventory-count" style="margin-bottom:10px"></div>
+    <div class="alert" id="alert-inventory"></div>
+    <div id="inventory-list"></div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
@@ -509,6 +532,7 @@ const MODULE_META = {
   "Machine Dashboard": { icon: "&#128269;", desc: "Search a machine and view its status" },
   "Machine Movement Overview": { icon: "&#128200;", desc: "Monthly machine flow overview" },
   "Audit": { icon: "&#128269;", desc: "Count stock and compare against Zoho" },
+  "Inventory": { icon: "&#128230;", desc: "View machines marked as Inventory" },
   "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" }
 };
 
@@ -843,6 +867,7 @@ async function openModule(mod) {
   } else if (mod === "Machine Dashboard") {
     resetMachineDashboardScreen();
     showScreen("screen-machine-dashboard");
+    await loadMegaParkMachineList();
   } else if (mod === "Machine Movement Overview") {
     showScreen("screen-movement-overview");
     await loadMonthlyMovementData();
@@ -850,6 +875,9 @@ async function openModule(mod) {
     resetAuditScreen();
     showScreen("screen-audit");
     await loadItemStockList();
+  } else if (mod === "Inventory") {
+    showScreen("screen-inventory");
+    await loadInventoryMachines();
   } else if (mod === "Machine PDI") {
     await loadDropdownData();
     resetPdiSelectScreen(); // sets pdiMachineType to DEFAULT_MACHINE_TYPE and fetches sections
@@ -912,8 +940,9 @@ function filterDropdown(which) {
   }
 
   // which === "viewermachine" falls through to the default machineNumbers list below.
+  const isDashboardSearch = which === "dashboard"; // Machine Dashboard: Machine Number or RC No.
   const list = isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
-    : isMovementMachine ? (megaParkMachineList || []) : (dropdownData.machineNumbers || []);
+    : isMovementMachine ? (megaParkMachineList || []) : isDashboardSearch ? (dashboardSearchList || []) : (dropdownData.machineNumbers || []);
   const noResultsLabel = "No machines found";
   const filtered = list.filter(m => {
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -946,8 +975,7 @@ function selectDropdownValue(which, m) {
   document.getElementById(which + "-search").value = m;
   document.getElementById(which + "-dropdown").classList.remove("open");
   const badge = document.getElementById(which + "-badge");
-  badge.textContent = "Selected: " + m;
-  badge.classList.add("show");
+  if (badge) { badge.textContent = "Selected: " + m; badge.classList.add("show"); }
   if (which === "movementmachine") selectedMovementMachine = m;
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
   else if (which === "addmdmachine") mdTargetMachine = m;
@@ -968,13 +996,20 @@ function resetDropdownSelections() {
 // MACHINE MOVEMENT SCREEN
 // ============================================================
 let megaParkMachineList = [];
+let megaParkRcList = [];
+let dashboardSearchList = [];
 let megaParkMachineListLoadedAt = 0;
 
 async function loadMegaParkMachineList(force) {
   if (!force && megaParkMachineList.length && (Date.now() - megaParkMachineListLoadedAt < 60 * 60 * 1000)) return;
   try {
     const data = await callApi("getMegaParkMachineList", {});
-    if (data.success) { megaParkMachineList = data.machines || []; megaParkMachineListLoadedAt = Date.now(); }
+    if (data.success) {
+      megaParkMachineList = data.machines || [];
+      megaParkRcList = data.rcNumbers || [];
+      dashboardSearchList = megaParkMachineList.concat(megaParkRcList.filter(rc => megaParkMachineList.indexOf(rc) === -1));
+      megaParkMachineListLoadedAt = Date.now();
+    }
   } catch (e) { /* search will just show no results if this failed */ }
 }
 
@@ -1139,15 +1174,20 @@ async function saveExpectedOutDate() {
 // ============================================================
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+let monthlyMovementRows = [];
+
 async function loadMonthlyMovementData() {
   const alertEl = document.getElementById("alert-movement-overview");
   const container = document.getElementById("movement-overview-table");
   hideAlert(alertEl);
   container.innerHTML = '<p style="color:var(--muted);font-size:13px">Loading...</p>';
+  document.getElementById("movement-overview-month-detail").style.display = "none";
   try {
     const data = await callApi("getMonthlyMovementData", {});
     if (data.success) {
-      renderMonthlyMovementTable(data.rows || []);
+      monthlyMovementRows = data.rows || [];
+      renderMonthlyMovementTable(monthlyMovementRows);
+      populateMonthSelect(monthlyMovementRows);
     } else {
       container.innerHTML = "";
       showAlert(alertEl, "error", data.error || "Could not load data.");
@@ -1156,6 +1196,45 @@ async function loadMonthlyMovementData() {
     container.innerHTML = "";
     showAlert(alertEl, "error", "Could not connect to server.");
   }
+}
+
+function populateMonthSelect(rows) {
+  const select = document.getElementById("movement-overview-month-select");
+  select.innerHTML = '<option value="">Choose a month...</option>';
+  rows.forEach(r => {
+    const label = MONTH_NAMES[Number(r.month)] || r.month;
+    const opt = document.createElement("option");
+    opt.value = String(r.month);
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+  document.getElementById("movement-overview-month-detail").style.display = "none";
+}
+
+function renderMonthDetailCard() {
+  const monthVal = document.getElementById("movement-overview-month-select").value;
+  const card = document.getElementById("movement-overview-month-detail");
+  if (!monthVal) { card.style.display = "none"; return; }
+
+  const r = monthlyMovementRows.find(row => String(row.month) === monthVal);
+  if (!r) { card.style.display = "none"; return; }
+
+  const label = MONTH_NAMES[Number(r.month)] || r.month;
+  card.innerHTML =
+    '<div style="font-size:15px;font-weight:700;margin-bottom:8px">' + escHtml(label) + '</div>' +
+    '<div style="font-size:13px;line-height:1.9">' +
+    'Machine IN: <strong>' + escHtml(String(r.machineIn)) + '</strong><br>' +
+    'Cancelled: <strong>' + escHtml(String(r.cancelled)) + '</strong><br>' +
+    'Machine Added: <strong>' + escHtml(String(r.machineAdded)) + '</strong><br>' +
+    'Machine Under Refurb: <strong>' + escHtml(String(r.underRefurb)) + '</strong><br>' +
+    'Total RFS: <strong>' + escHtml(String(r.totalRFS)) + '</strong><br>' +
+    'Category A: <strong>' + escHtml(String(r.catA)) + '</strong><br>' +
+    'Category B: <strong>' + escHtml(String(r.catB)) + '</strong><br>' +
+    'Category C: <strong>' + escHtml(String(r.catC)) + '</strong><br>' +
+    'Category D: <strong>' + escHtml(String(r.catD)) + '</strong><br>' +
+    'Total Delivered: <strong>' + escHtml(String(r.totalDelivered)) + '</strong>' +
+    '</div>';
+  card.style.display = "block";
 }
 
 function renderMonthlyMovementTable(rows) {
@@ -2082,6 +2161,60 @@ async function uploadPendingAudit(localId) {
   } catch (e) {
     showAlert(alertEl, "error", "Upload failed - check your internet connection: " + e.message);
     btn.disabled = false; btn.innerHTML = "Upload";
+  }
+}
+
+// ============================================================
+// INVENTORY (read-only: machines with Status = "Inventory" in IJ Mega Park)
+// ============================================================
+async function loadInventoryMachines() {
+  const alertEl = document.getElementById("alert-inventory");
+  const countEl = document.getElementById("inventory-count");
+  const container = document.getElementById("inventory-list");
+  hideAlert(alertEl);
+  countEl.textContent = "Loading...";
+  container.innerHTML = "";
+  try {
+    const data = await callApiWithProgress("getInventoryMachines", {}, "Loading inventory...", 10);
+    if (data.success) {
+      renderInventoryList(data.rows || []);
+    } else {
+      countEl.textContent = "";
+      showAlert(alertEl, "error", data.error || "Could not load inventory.");
+    }
+  } catch (e) {
+    countEl.textContent = "";
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+function renderInventoryList(rows) {
+  const countEl = document.getElementById("inventory-count");
+  const container = document.getElementById("inventory-list");
+  countEl.textContent = rows.length === 0 ? "No machines marked as Inventory." : rows.length + " machine(s), oldest Stock In Date first";
+  container.innerHTML = "";
+  rows.forEach((r, idx) => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    card.innerHTML =
+      '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
+      '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
+      '<div class="task-meta">Stock In Date: ' + escHtml(r.stockInDate || "\u2014") + '</div>' +
+      '<button class="btn btn-outline" style="margin-top:10px" onclick="copyInventoryRow(' + idx + ')">Copy Details</button>';
+    container.appendChild(card);
+  });
+  window._inventoryRows = rows; // for copy handler
+}
+
+function copyInventoryRow(idx) {
+  const r = window._inventoryRows[idx];
+  if (!r) return;
+  const text = "Machine Number: " + r.machineNumber + "\nRC No: " + (r.rcNo || "-") +
+    "\nYOM: " + (r.yom || "-") + "\nModel: " + (r.model || "-") + "\nHP: " + (r.hp || "-");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast("Copied to clipboard.")).catch(() => showToast("Could not copy."));
+  } else {
+    showToast("Copy not supported on this browser.");
   }
 }
 
