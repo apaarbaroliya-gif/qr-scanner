@@ -434,6 +434,12 @@
       <div id="audit-fields" style="display:none">
         <label style="margin-top:16px">Physical Quantity Counted</label>
         <input type="number" id="audit-qty" min="0" step="1" inputmode="numeric" placeholder="Enter counted quantity">
+
+        <label style="margin-top:16px">Location <span style="color:var(--muted)">(optional)</span></label>
+        <input type="text" id="audit-location" placeholder="Enter location">
+
+        <label style="margin-top:16px">Bin No. <span style="color:var(--muted)">(optional)</span></label>
+        <input type="text" id="audit-bin" placeholder="Enter bin number">
       </div>
     </div>
 
@@ -2002,6 +2008,8 @@ function resetAuditScreen() {
   selectedAuditItem = "";
   document.getElementById("audit-fields").style.display = "none";
   document.getElementById("audit-qty").value = "";
+  document.getElementById("audit-location").value = "";
+  document.getElementById("audit-bin").value = "";
   document.getElementById("btn-audit-save").style.display = "none";
   document.getElementById("audit-post-save").style.display = "none";
   document.getElementById("audit-entry-card").style.display = "block";
@@ -2013,6 +2021,8 @@ function resetAuditScreen() {
 function onAuditItemSelected() {
   document.getElementById("audit-fields").style.display = "block";
   document.getElementById("audit-qty").value = "";
+  document.getElementById("audit-location").value = "";
+  document.getElementById("audit-bin").value = "";
   document.getElementById("btn-audit-save").style.display = "block";
 }
 
@@ -2112,6 +2122,8 @@ async function saveAuditLocally() {
     localId: "audit_" + Date.now(),
     itemName: selectedAuditItem,
     physicalQuantity: qty,
+    location: document.getElementById("audit-location").value.trim(),
+    binNo: document.getElementById("audit-bin").value.trim(),
     createdAt: Date.now()
   };
   localStorage.setItem("audit_pending_" + record.localId, JSON.stringify(record));
@@ -2152,6 +2164,7 @@ function loadAuditPendingList() {
     card.className = "task-card";
     card.innerHTML = '<div class="task-title">' + escHtml(record.itemName) + '</div>' +
       '<div class="task-sub">Physical Quantity Counted: ' + escHtml(record.physicalQuantity) + '</div>' +
+      (record.location || record.binNo ? '<div class="task-meta">Location: ' + escHtml(record.location || "\u2014") + '  |  Bin No.: ' + escHtml(record.binNo || "\u2014") + '</div>' : '') +
       '<button class="btn btn-success" style="margin-top:10px" id="btn-auditupload-' + record.localId + '" onclick="uploadPendingAudit(\'' + record.localId + '\')">Upload</button>' +
       '<div class="alert" id="alert-auditupload-' + record.localId + '"></div>';
     container.appendChild(card);
@@ -2168,13 +2181,26 @@ async function uploadPendingAudit(localId) {
 
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
   try {
-    const data = await callApi("submitAudit", {
-      itemName: record.itemName, username: currentUser, physicalQuantity: record.physicalQuantity
-    });
+    const basePayload = {
+      itemName: record.itemName, username: currentUser, physicalQuantity: record.physicalQuantity,
+      location: record.location || "", binNo: record.binNo || ""
+    };
+    let data = await callApi("submitAudit", basePayload);
+
+    if (data.success && data.needsConfirmation) {
+      const existingText = "This item already exists in Stock Gap.\nExisting Location: " + (data.existingLocation || "\u2014") +
+        "\nExisting Bin No.: " + (data.existingBinNo || "\u2014") +
+        "\n\nIs this the SAME stock (update it with your new details)?\nPress Cancel if this is a DIFFERENT location (adds a new row for review).";
+      const sameLocation = confirm(existingText);
+      data = await callApi("submitAudit", Object.assign({}, basePayload, { confirmed: true, sameLocation: sameLocation }));
+    }
+
     if (data.success) {
-      const msg = data.gapFound
-        ? record.itemName + ": gap of " + data.gap + " logged (Zoho: " + data.zohoQuantity + ", Counted: " + record.physicalQuantity + ")."
-        : record.itemName + ": matches Zoho, no gap recorded.";
+      const msg = data.itemStatus === "Check"
+        ? record.itemName + ": logged as a different location - marked \"Check\" for review."
+        : data.gapFound
+          ? record.itemName + ": gap of " + data.gap + " logged (Zoho: " + data.zohoQuantity + ", Counted: " + record.physicalQuantity + ")."
+          : record.itemName + ": matches Zoho, no gap recorded.";
       showToast(msg);
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       localStorage.removeItem("audit_pending_" + localId);
