@@ -683,8 +683,10 @@ function hideBusyOverlay() {
 const SCREEN_REFRESH_FUNCTIONS = {
   "screen-home": () => syncSessionWithServer(),
   "screen-pdi-select": () => { loadUncompletedPdiList(true); loadPdiPendingUploads(); },
-  "screen-incentive": () => loadIncentivePendingList(),
-  "screen-audit": () => loadAuditPendingList()
+  "screen-incentive": () => { loadIncentiveNames(true); loadIncentivePendingList(); },
+  "screen-audit": () => loadAuditPendingList(),
+  "screen-movement-overview": () => loadMonthlyMovementData(true),
+  "screen-inventory": () => loadInventoryMachines(true)
 };
 let currentScreenRefreshFn = null;
 
@@ -1175,9 +1177,16 @@ async function saveExpectedOutDate() {
 const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 let monthlyMovementRows = [];
+let monthlyMovementLoadedAt = 0;
 
-async function loadMonthlyMovementData() {
+async function loadMonthlyMovementData(force) {
   const alertEl = document.getElementById("alert-movement-overview");
+  if (!force && monthlyMovementRows.length && (Date.now() - monthlyMovementLoadedAt < 60 * 60 * 1000)) {
+    hideAlert(alertEl);
+    renderMonthlyMovementTable(monthlyMovementRows);
+    populateMonthSelect(monthlyMovementRows);
+    return;
+  }
   const container = document.getElementById("movement-overview-table");
   hideAlert(alertEl);
   container.innerHTML = '<p style="color:var(--muted);font-size:13px">Loading...</p>';
@@ -1186,6 +1195,7 @@ async function loadMonthlyMovementData() {
     const data = await callApi("getMonthlyMovementData", {});
     if (data.success) {
       monthlyMovementRows = data.rows || [];
+      monthlyMovementLoadedAt = Date.now();
       renderMonthlyMovementTable(monthlyMovementRows);
       populateMonthSelect(monthlyMovementRows);
     } else {
@@ -1808,10 +1818,13 @@ function downloadPdiViewerPdf() {
 // ============================================================
 const INCENTIVE_MAX_PENDING = 5;
 
-async function loadIncentiveNames() {
+let incentiveNamesLoadedAt = 0;
+
+async function loadIncentiveNames(force) {
+  if (!force && incentiveNamesList.length && (Date.now() - incentiveNamesLoadedAt < 60 * 60 * 1000)) return;
   try {
     const data = await callApi("getIncentiveNames", {});
-    if (data.success) incentiveNamesList = data.names || [];
+    if (data.success) { incentiveNamesList = data.names || []; incentiveNamesLoadedAt = Date.now(); }
   } catch (e) { /* list will just be empty if this failed - user can Refresh */ }
 }
 
@@ -2179,8 +2192,16 @@ async function uploadPendingAudit(localId) {
 // ============================================================
 // INVENTORY (read-only: machines with Status = "Inventory" in IJ Mega Park)
 // ============================================================
-async function loadInventoryMachines() {
+let inventoryRowsCache = null;
+let inventoryLoadedAt = 0;
+
+async function loadInventoryMachines(force) {
   const alertEl = document.getElementById("alert-inventory");
+  if (!force && inventoryRowsCache && (Date.now() - inventoryLoadedAt < 60 * 60 * 1000)) {
+    hideAlert(alertEl);
+    renderInventoryList(inventoryRowsCache);
+    return;
+  }
   const countEl = document.getElementById("inventory-count");
   const container = document.getElementById("inventory-list");
   hideAlert(alertEl);
@@ -2189,7 +2210,9 @@ async function loadInventoryMachines() {
   try {
     const data = await callApiWithProgress("getInventoryMachines", {}, "Loading inventory...", 10);
     if (data.success) {
-      renderInventoryList(data.rows || []);
+      inventoryRowsCache = data.rows || [];
+      inventoryLoadedAt = Date.now();
+      renderInventoryList(inventoryRowsCache);
     } else {
       countEl.textContent = "";
       showAlert(alertEl, "error", data.error || "Could not load inventory.");
