@@ -1061,9 +1061,9 @@ async function submitMovementData() {
     }
     if (!check.exists) {
       hideBusyOverlay();
-      showToast("Please fill Machine Details for this machine first.");
-      mdTargetMachine = selectedMovementMachine;
+      showToast("Please fill Machine Details for this machine first - you'll be brought back here automatically.");
       resetAddMachineDetailsForm();
+      mdGateSource = "movement"; // completes "Mark as Under Refurb" automatically after saving
       document.getElementById("addmdmachine-search").value = selectedMovementMachine;
       mdTargetMachine = selectedMovementMachine;
       const badge = document.getElementById("addmdmachine-badge");
@@ -1532,6 +1532,7 @@ async function uploadPendingPdi(machineNumber) {
 
 // ---- Machine Details (only reachable now via the "Add Machine Details" module) ----
 let mdTargetMachine = ""; // the machine currently being edited on screen-machine-details
+let mdGateSource = ""; // "" (opened as its own module) or "movement" (opened as a gate from Machine Movement)
 
 function populateMachineDetailsSelects() {
   const fill = (id, list) => {
@@ -1561,6 +1562,7 @@ function resetMachineDetailsFormFields() {
 // Entry point for the standalone "Add Machine Details" module
 function resetAddMachineDetailsForm() {
   mdTargetMachine = "";
+  mdGateSource = "";
   document.getElementById("addmdmachine-search").value = "";
   const mBadge = document.getElementById("addmdmachine-badge");
   mBadge.classList.remove("show"); mBadge.textContent = "";
@@ -1605,6 +1607,24 @@ async function saveMachineDetailsAndContinue() {
       hp: hp, hmr: hmr, model: model, engineType: engineType, hydPumpType: hydPumpType
     });
     if (data.success) {
+      if (mdGateSource === "movement") {
+        // Came here from Machine Movement's gate - finish the job automatically
+        // instead of stranding the user on a generic "Add Another" screen.
+        const movementMachine = mdTargetMachine;
+        mdGateSource = "";
+        const moveData = await callApi("submitMachineMovement", { machineNumber: movementMachine });
+        showScreen("screen-machine-movement");
+        const moveAlertEl = document.getElementById("alert-submit-movement");
+        if (moveData.success) {
+          showAlert(moveAlertEl, "success", "Machine Details saved, and marked as Under Refurb - Workshop In Date set to today.");
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+          document.getElementById("btn-submit-movement").style.display = "none";
+          document.getElementById("movement-post-submit").style.display = "block";
+        } else {
+          showAlert(moveAlertEl, "error", "Machine Details saved, but marking Under Refurb failed: " + (moveData.error || "unknown error") + ". Please try again.");
+        }
+        return;
+      }
       showAlert(alertEl, "success", data.alreadyExisted ? "Machine Details already existed on file for this machine." : "Machine Details saved.");
       btn.style.display = "none";
       document.getElementById("machine-details-post-save").style.display = "block";
