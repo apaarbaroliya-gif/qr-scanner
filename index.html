@@ -388,18 +388,20 @@
     <div id="dashboard-results" style="display:none">
       <div class="card" id="dashboard-details-card"></div>
 
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <button class="btn btn-outline" style="flex:1;margin-top:0" onclick="holdDashboardMachine()">Hold</button>
-        <button class="btn btn-success" style="flex:1;margin-top:0" onclick="markDashboardRFS()">RFS</button>
-      </div>
-      <div class="alert" id="alert-dashboard-action"></div>
+      <div id="dashboard-action-buttons" style="display:none">
+        <div style="display:flex;gap:10px;margin-bottom:10px">
+          <button class="btn btn-outline" style="flex:1;margin-top:0" onclick="holdDashboardMachine()">Hold</button>
+          <button class="btn btn-success" style="flex:1;margin-top:0" onclick="markDashboardRFS()">RFS</button>
+        </div>
+        <div class="alert" id="alert-dashboard-action"></div>
 
-      <div class="card">
-        <label>Expected Workshop Out Date</label>
-        <input type="date" id="dashboard-expected-out-date">
-        <button class="btn btn-success" style="margin-top:10px" onclick="saveExpectedOutDate()" id="btn-dashboard-save-date">Save Date</button>
+        <div class="card">
+          <label>Expected Workshop Out Date</label>
+          <input type="date" id="dashboard-expected-out-date">
+          <button class="btn btn-success" style="margin-top:10px" onclick="saveExpectedOutDate()" id="btn-dashboard-save-date">Save Date</button>
+        </div>
+        <div class="alert" id="alert-dashboard-date"></div>
       </div>
-      <div class="alert" id="alert-dashboard-date"></div>
     </div>
 
     <h4 style="margin-top:24px;margin-bottom:6px">Under Refurb</h4>
@@ -1170,6 +1172,9 @@ function renderMachineDashboard(d) {
     row('Refurb Budget', d.refurbBudget) + row('Zoho Refurb Total', d.zohoRefurbTotal) +
     '</div>';
 
+  const isUnderRefurb = (d.megaParkStatus || "").toLowerCase() === "under refurb";
+  document.getElementById("dashboard-action-buttons").style.display = isUnderRefurb ? "block" : "none";
+
   const dateInput = document.getElementById("dashboard-expected-out-date");
   const btn = document.getElementById("btn-dashboard-save-date");
   if (d.expectedWorkshopOutDate) {
@@ -1285,55 +1290,29 @@ async function loadUnderRefurbWidgets(force) {
   }
 }
 
-// Pinned Booked/RFS widgets are dismissed locally only (no sheet write) - the
-// dismissal is remembered per device so it survives reloads, keyed by both
-// machine number and status type so a machine that later re-enters RFS or
-// Booked isn't permanently hidden.
-function isDashboardWidgetDismissed(machineNumber, statusType) {
-  return localStorage.getItem("dashboard_dismissed_" + statusType + "_" + machineNumber) === "1";
-}
-function dismissDashboardWidget(machineNumber, statusType) {
-  localStorage.setItem("dashboard_dismissed_" + statusType + "_" + machineNumber, "1");
-  renderUnderRefurbWidgets(underRefurbRows);
-}
-
+// The widget list is filtered server-side by Column AA (IN Workshop = Yes) -
+// only machines explicitly marked Under Refurb via Machine Movement appear
+// here. Marking a machine RFS clears that flag, which is what removes it.
 function renderUnderRefurbWidgets(rows) {
   const countEl = document.getElementById("dashboard-widget-count");
   const container = document.getElementById("dashboard-widget-list");
-  const visibleRows = rows.filter(r => !(r.statusType !== "under_refurb" && isDashboardWidgetDismissed(r.machineNumber, r.statusType)));
-  countEl.textContent = visibleRows.length === 0 ? "No machines currently Under Refurb." : visibleRows.length + " machine(s) - Booked and RFS pinned to the top";
+  countEl.textContent = rows.length === 0 ? "No machines currently Under Refurb." : rows.length + " machine(s), longest in workshop first";
   container.innerHTML = "";
 
-  visibleRows.forEach(r => {
+  rows.forEach(r => {
     const card = document.createElement("div");
     card.className = "task-card";
-
-    if (r.statusType === "booked" || r.statusType === "rfs") {
-      const badgeLabel = r.statusType === "booked" ? "BOOKED" : "RFS";
-      const badgeColor = r.statusType === "booked" ? "var(--accent)" : "var(--warning)";
-      const btnLabel = r.statusType === "booked" ? "Delivered" : "Completed";
-      card.innerHTML =
-        '<div class="task-title">' + escHtml(r.machineNumber) +
-        ' <span style="font-size:11px;font-weight:700;color:' + badgeColor + ';border:1px solid ' + badgeColor + ';border-radius:6px;padding:2px 6px;margin-left:6px">' + badgeLabel + '</span></div>' +
-        '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
-        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '</div>' +
-        '<div style="display:flex;gap:10px;margin-top:10px">' +
-        '<button class="btn btn-outline" style="flex:1;margin-top:0" onclick="event.stopPropagation();openDashboardWidget(\'' + r.machineNumber.replace(/'/g, "\\'") + '\')">View Details</button>' +
-        '<button class="btn btn-success" style="flex:1;margin-top:0" onclick="event.stopPropagation();dismissDashboardWidget(\'' + r.machineNumber.replace(/'/g, "\\'") + '\', \'' + r.statusType + '\')">' + btnLabel + '</button>' +
-        '</div>';
-    } else {
-      if (r.refurbBudget > 0) {
-        const ratio = r.zohoRefurbTotal / r.refurbBudget;
-        if (ratio > 1) card.classList.add("budget-over");
-        else if (ratio > 0.5) card.classList.add("budget-warn");
-      }
-      card.style.cursor = "pointer";
-      card.innerHTML =
-        '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
-        '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
-        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
-      card.onclick = () => openDashboardWidget(r.machineNumber);
+    if (r.refurbBudget > 0) {
+      const ratio = r.zohoRefurbTotal / r.refurbBudget;
+      if (ratio > 1) card.classList.add("budget-over");
+      else if (ratio > 0.5) card.classList.add("budget-warn");
     }
+    card.style.cursor = "pointer";
+    card.innerHTML =
+      '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
+      '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
+      '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
+    card.onclick = () => openDashboardWidget(r.machineNumber);
     container.appendChild(card);
   });
 }
