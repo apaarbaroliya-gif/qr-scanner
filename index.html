@@ -402,6 +402,11 @@
         </div>
         <div class="alert" id="alert-dashboard-date"></div>
       </div>
+
+      <div id="dashboard-remove-button" style="display:none">
+        <button class="btn btn-success" onclick="removeDashboardMachine()">Remove from Dashboard</button>
+        <div class="alert" id="alert-dashboard-remove"></div>
+      </div>
     </div>
 
     <h4 style="margin-top:24px;margin-bottom:6px">Under Refurb</h4>
@@ -1091,7 +1096,7 @@ async function submitMovementData() {
     if (data.success && data.skipped) {
       showAlert(alertEl, "error", data.message);
     } else if (data.success) {
-      showAlert(alertEl, "success", "Marked as Under Refurb - Workshop In Date set to today.");
+      showAlert(alertEl, "success", data.message || "Done.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       btn.style.display = "none";
       document.getElementById("movement-post-submit").style.display = "block";
@@ -1174,6 +1179,8 @@ function renderMachineDashboard(d) {
 
   const isUnderRefurb = (d.megaParkStatus || "").toLowerCase() === "under refurb";
   document.getElementById("dashboard-action-buttons").style.display = isUnderRefurb ? "block" : "none";
+  document.getElementById("dashboard-remove-button").style.display = isUnderRefurb ? "none" : "block";
+  hideAlert(document.getElementById("alert-dashboard-remove"));
 
   const dateInput = document.getElementById("dashboard-expected-out-date");
   const btn = document.getElementById("btn-dashboard-save-date");
@@ -1250,6 +1257,32 @@ async function markDashboardRFS() {
     const data = await callApi("markRFS", { machineNumber: dashboardMachineNumber });
     if (data.success) {
       showAlert(alertEl, "success", "Marked as RFS.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      loadUnderRefurbWidgets(true);
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to update.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to update: " + e.message);
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
+// For machines that aren't "Under Refurb" status (e.g. a Booked/RFS machine
+// temporarily brought back to the workshop) - a single button that just
+// clears the IN Workshop flag, removing it from the Dashboard.
+async function removeDashboardMachine() {
+  const alertEl = document.getElementById("alert-dashboard-remove");
+  hideAlert(alertEl);
+  if (!dashboardMachineNumber) return;
+  if (!confirm("Remove " + dashboardMachineNumber + " from the Dashboard?")) return;
+
+  showBusyOverlay();
+  try {
+    const data = await callApi("removeFromDashboard", { machineNumber: dashboardMachineNumber });
+    if (data.success) {
+      showAlert(alertEl, "success", "Removed from the Dashboard.");
       if (navigator.vibrate) navigator.vibrate(100);
       loadUnderRefurbWidgets(true);
     } else {
