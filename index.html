@@ -964,7 +964,7 @@ function filterDropdown(which) {
   // which === "viewermachine" falls through to the default machineNumbers list below.
   const isDashboardSearch = which === "dashboard"; // Machine Dashboard: Machine Number or RC No.
   const list = isPdiMachine ? (dropdownData.machinesPdi || []) : isAddMdMachine ? (dropdownData.machinesAddDetails || [])
-    : isMovementMachine ? (megaParkMachineList || []) : isDashboardSearch ? (dashboardSearchList || []) : (dropdownData.machineNumbers || []);
+    : isMovementMachine ? (dashboardSearchList || []) : isDashboardSearch ? (dashboardSearchList || []) : (dropdownData.machineNumbers || []);
   const noResultsLabel = "No machines found";
   const filtered = list.filter(m => {
     const last4 = m.replace(/\s/g, "").slice(-4);
@@ -998,7 +998,18 @@ function selectDropdownValue(which, m) {
   document.getElementById(which + "-dropdown").classList.remove("open");
   const badge = document.getElementById(which + "-badge");
   if (badge) { badge.textContent = "Selected: " + m; badge.classList.add("show"); }
-  if (which === "movementmachine") selectedMovementMachine = m;
+  if (which === "movementmachine") {
+    // "m" might be an RC No (the list includes both) - downstream actions
+    // (checkMachineDetails, submitMachineMovement) only match by Machine
+    // Number, so resolve it here rather than passing the RC No through.
+    const isKnownMachineNumber = megaParkMachineList.indexOf(m) !== -1;
+    const resolved = isKnownMachineNumber ? m : (megaParkRcToMachine[m.toLowerCase()] || m);
+    selectedMovementMachine = resolved;
+    if (!isKnownMachineNumber && resolved !== m) {
+      document.getElementById("movementmachine-search").value = resolved + " (RC: " + m + ")";
+      if (badge) badge.textContent = "Selected: " + resolved + " (matched from RC No " + m + ")";
+    }
+  }
   else if (which === "pdimachine") { selectedPdiMachine = m; cacheOfflineStructureForMachine(m); }
   else if (which === "addmdmachine") mdTargetMachine = m;
   else if (which === "viewermachine") selectedViewerMachine = m;
@@ -1019,6 +1030,7 @@ function resetDropdownSelections() {
 // ============================================================
 let megaParkMachineList = [];
 let megaParkRcList = [];
+let megaParkRcToMachine = {};
 let dashboardSearchList = [];
 let megaParkMachineListLoadedAt = 0;
 
@@ -1029,6 +1041,7 @@ async function loadMegaParkMachineList(force) {
     if (data.success) {
       megaParkMachineList = data.machines || [];
       megaParkRcList = data.rcNumbers || [];
+      megaParkRcToMachine = data.rcToMachine || {};
       dashboardSearchList = megaParkMachineList.concat(megaParkRcList.filter(rc => megaParkMachineList.indexOf(rc) === -1));
       megaParkMachineListLoadedAt = Date.now();
     }
@@ -1073,7 +1086,9 @@ async function submitMovementData() {
     }
 
     const data = await callApi("submitMachineMovement", { machineNumber: selectedMovementMachine });
-    if (data.success) {
+    if (data.success && data.skipped) {
+      showAlert(alertEl, "error", data.message);
+    } else if (data.success) {
       showAlert(alertEl, "success", "Marked as Under Refurb - Workshop In Date set to today.");
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       btn.style.display = "none";
@@ -1270,26 +1285,55 @@ async function loadUnderRefurbWidgets(force) {
   }
 }
 
+// Pinned Booked/RFS widgets are dismissed locally only (no sheet write) - the
+// dismissal is remembered per device so it survives reloads, keyed by both
+// machine number and status type so a machine that later re-enters RFS or
+// Booked isn't permanently hidden.
+function isDashboardWidgetDismissed(machineNumber, statusType) {
+  return localStorage.getItem("dashboard_dismissed_" + statusType + "_" + machineNumber) === "1";
+}
+function dismissDashboardWidget(machineNumber, statusType) {
+  localStorage.setItem("dashboard_dismissed_" + statusType + "_" + machineNumber, "1");
+  renderUnderRefurbWidgets(underRefurbRows);
+}
+
 function renderUnderRefurbWidgets(rows) {
   const countEl = document.getElementById("dashboard-widget-count");
   const container = document.getElementById("dashboard-widget-list");
-  countEl.textContent = rows.length === 0 ? "No machines currently Under Refurb." : rows.length + " machine(s), longest in workshop first";
+  const visibleRows = rows.filter(r => !(r.statusType !== "under_refurb" && isDashboardWidgetDismissed(r.machineNumber, r.statusType)));
+  countEl.textContent = visibleRows.length === 0 ? "No machines currently Under Refurb." : visibleRows.length + " machine(s) - Booked and RFS pinned to the top";
   container.innerHTML = "";
 
-  rows.forEach(r => {
+  visibleRows.forEach(r => {
     const card = document.createElement("div");
     card.className = "task-card";
-    if (r.refurbBudget > 0) {
-      const ratio = r.zohoRefurbTotal / r.refurbBudget;
-      if (ratio > 1) card.classList.add("budget-over");
-      else if (ratio > 0.5) card.classList.add("budget-warn");
+
+    if (r.statusType === "booked" || r.statusType === "rfs") {
+      const badgeLabel = r.statusType === "booked" ? "BOOKED" : "RFS";
+      const badgeColor = r.statusType === "booked" ? "var(--accent)" : "var(--warning)";
+      const btnLabel = r.statusType === "booked" ? "Delivered" : "Completed";
+      card.innerHTML =
+        '<div class="task-title">' + escHtml(r.machineNumber) +
+        ' <span style="font-size:11px;font-weight:700;color:' + badgeColor + ';border:1px solid ' + badgeColor + ';border-radius:6px;padding:2px 6px;margin-left:6px">' + badgeLabel + '</span></div>' +
+        '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
+        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '</div>' +
+        '<div style="display:flex;gap:10px;margin-top:10px">' +
+        '<button class="btn btn-outline" style="flex:1;margin-top:0" onclick="event.stopPropagation();openDashboardWidget(\'' + r.machineNumber.replace(/'/g, "\\'") + '\')">View Details</button>' +
+        '<button class="btn btn-success" style="flex:1;margin-top:0" onclick="event.stopPropagation();dismissDashboardWidget(\'' + r.machineNumber.replace(/'/g, "\\'") + '\', \'' + r.statusType + '\')">' + btnLabel + '</button>' +
+        '</div>';
+    } else {
+      if (r.refurbBudget > 0) {
+        const ratio = r.zohoRefurbTotal / r.refurbBudget;
+        if (ratio > 1) card.classList.add("budget-over");
+        else if (ratio > 0.5) card.classList.add("budget-warn");
+      }
+      card.style.cursor = "pointer";
+      card.innerHTML =
+        '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
+        '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
+        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
+      card.onclick = () => openDashboardWidget(r.machineNumber);
     }
-    card.style.cursor = "pointer";
-    card.innerHTML =
-      '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
-      '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
-      '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
-    card.onclick = () => openDashboardWidget(r.machineNumber);
     container.appendChild(card);
   });
 }
