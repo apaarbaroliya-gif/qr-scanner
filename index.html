@@ -82,6 +82,8 @@
   .task-filter-panel { display:none; }
   .task-filter-panel.open { display:block; }
   .task-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .task-card.budget-over { background: rgba(218,54,51,.12); border-color: var(--danger); }
+  .task-card.budget-warn { background: rgba(210,153,34,.12); border-color: var(--warning); }
   .task-card .task-title { font-size: 14px; font-weight:700; margin-bottom: 2px; }
   .task-card .task-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .task-card .task-meta { font-size: 11px; color: var(--muted); }
@@ -386,6 +388,12 @@
     <div id="dashboard-results" style="display:none">
       <div class="card" id="dashboard-details-card"></div>
 
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <button class="btn btn-outline" style="flex:1;margin-top:0" onclick="holdDashboardMachine()">Hold</button>
+        <button class="btn btn-success" style="flex:1;margin-top:0" onclick="markDashboardRFS()">RFS</button>
+      </div>
+      <div class="alert" id="alert-dashboard-action"></div>
+
       <div class="card">
         <label>Expected Workshop Out Date</label>
         <input type="date" id="dashboard-expected-out-date">
@@ -393,6 +401,11 @@
       </div>
       <div class="alert" id="alert-dashboard-date"></div>
     </div>
+
+    <h4 style="margin-top:24px;margin-bottom:6px">Under Refurb</h4>
+    <div class="task-count-text" id="dashboard-widget-count" style="margin:0 0 8px"></div>
+    <div class="alert" id="alert-dashboard-widgets"></div>
+    <div id="dashboard-widget-list"></div>
   </div>
 
   <!-- SCREEN: MACHINE MOVEMENT OVERVIEW -->
@@ -692,7 +705,8 @@ const SCREEN_REFRESH_FUNCTIONS = {
   "screen-incentive": () => { loadIncentiveNames(true); loadIncentivePendingList(); },
   "screen-audit": () => loadAuditPendingList(),
   "screen-movement-overview": () => loadMonthlyMovementData(true),
-  "screen-inventory": () => loadInventoryMachines(true)
+  "screen-inventory": () => loadInventoryMachines(true),
+  "screen-machine-dashboard": () => loadUnderRefurbWidgets(true)
 };
 let currentScreenRefreshFn = null;
 
@@ -1084,6 +1098,8 @@ function submitNewMovementResponse() {
 // + Expected Workshop Out Date, which can be set/edited)
 // ============================================================
 let dashboardMachineNumber = "";
+let underRefurbRows = [];
+let underRefurbLoadedAt = 0;
 
 function resetMachineDashboardScreen() {
   dashboardMachineNumber = "";
@@ -1091,6 +1107,8 @@ function resetMachineDashboardScreen() {
   document.getElementById("dashboard-results").style.display = "none";
   hideAlert(document.getElementById("alert-dashboard"));
   hideAlert(document.getElementById("alert-dashboard-date"));
+  hideAlert(document.getElementById("alert-dashboard-action"));
+  loadUnderRefurbWidgets();
 }
 
 async function searchMachineDashboard() {
@@ -1108,6 +1126,7 @@ async function searchMachineDashboard() {
     if (data.success) {
       renderMachineDashboard(data.details);
       document.getElementById("dashboard-results").style.display = "block";
+      document.getElementById("dashboard-results").scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
       showAlert(alertEl, "error", data.error || "No machine found.");
     }
@@ -1132,7 +1151,6 @@ function renderMachineDashboard(d) {
     (d.bookingDate !== undefined ? row('Booking Date', d.bookingDate) : '') +
     (d.deliveryDate !== undefined ? row('Delivery Date', d.deliveryDate) : '') +
     (d.machineStatus !== undefined ? row('Machine Status', d.machineStatus) : '') +
-    (d.customerName !== undefined ? row('Customer Name', d.customerName) : '') +
     (d.salesExecutive !== undefined ? row('Sales Executive', d.salesExecutive) : '') +
     row('Refurb Budget', d.refurbBudget) + row('Zoho Refurb Total', d.zohoRefurbTotal) +
     '</div>';
@@ -1148,6 +1166,7 @@ function renderMachineDashboard(d) {
     dateInput.value = "";
     btn.textContent = "Save Date";
   }
+  hideAlert(document.getElementById("alert-dashboard-action"));
 }
 
 async function saveExpectedOutDate() {
@@ -1175,6 +1194,109 @@ async function saveExpectedOutDate() {
     btn.disabled = false;
     hideBusyOverlay();
   }
+}
+
+async function holdDashboardMachine() {
+  const alertEl = document.getElementById("alert-dashboard-action");
+  hideAlert(alertEl);
+  if (!dashboardMachineNumber) return;
+  if (!confirm("Put " + dashboardMachineNumber + " on Hold? This clears its Workshop In Date.")) return;
+
+  showBusyOverlay();
+  try {
+    const data = await callApi("holdMachine", { machineNumber: dashboardMachineNumber });
+    if (data.success) {
+      showAlert(alertEl, "success", "Machine put on Hold.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      loadUnderRefurbWidgets(true);
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to update.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to update: " + e.message);
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
+async function markDashboardRFS() {
+  const alertEl = document.getElementById("alert-dashboard-action");
+  hideAlert(alertEl);
+  if (!dashboardMachineNumber) return;
+  if (!confirm("Mark " + dashboardMachineNumber + " as RFS? This sets today's date as its Workshop Out Date.")) return;
+
+  showBusyOverlay();
+  try {
+    const data = await callApi("markRFS", { machineNumber: dashboardMachineNumber });
+    if (data.success) {
+      showAlert(alertEl, "success", "Marked as RFS.");
+      if (navigator.vibrate) navigator.vibrate(100);
+      loadUnderRefurbWidgets(true);
+    } else {
+      showAlert(alertEl, "error", data.error || "Failed to update.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Failed to update: " + e.message);
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
+// ---- Under Refurb widget list ----
+async function loadUnderRefurbWidgets(force) {
+  const alertEl = document.getElementById("alert-dashboard-widgets");
+  const countEl = document.getElementById("dashboard-widget-count");
+  if (!force && underRefurbRows.length && (Date.now() - underRefurbLoadedAt < 60 * 60 * 1000)) {
+    hideAlert(alertEl);
+    renderUnderRefurbWidgets(underRefurbRows);
+    return;
+  }
+  hideAlert(alertEl);
+  countEl.textContent = "Loading...";
+  document.getElementById("dashboard-widget-list").innerHTML = "";
+  try {
+    const data = await callApiWithProgress("getUnderRefurbMachines", {}, "Loading machines...", 10);
+    if (data.success) {
+      underRefurbRows = data.rows || [];
+      underRefurbLoadedAt = Date.now();
+      renderUnderRefurbWidgets(underRefurbRows);
+    } else {
+      countEl.textContent = "";
+      showAlert(alertEl, "error", data.error || "Could not load machines.");
+    }
+  } catch (e) {
+    countEl.textContent = "";
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+function renderUnderRefurbWidgets(rows) {
+  const countEl = document.getElementById("dashboard-widget-count");
+  const container = document.getElementById("dashboard-widget-list");
+  countEl.textContent = rows.length === 0 ? "No machines currently Under Refurb." : rows.length + " machine(s), longest in workshop first";
+  container.innerHTML = "";
+
+  rows.forEach(r => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    if (r.refurbBudget > 0) {
+      const ratio = r.zohoRefurbTotal / r.refurbBudget;
+      if (ratio > 1) card.classList.add("budget-over");
+      else if (ratio > 0.5) card.classList.add("budget-warn");
+    }
+    card.style.cursor = "pointer";
+    card.innerHTML =
+      '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
+      '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
+      '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
+    card.onclick = () => openDashboardWidget(r.machineNumber);
+    container.appendChild(card);
+  });
+}
+
+async function openDashboardWidget(machineNumber) {
+  document.getElementById("dashboard-search").value = machineNumber;
+  await searchMachineDashboard();
 }
 
 // ============================================================
