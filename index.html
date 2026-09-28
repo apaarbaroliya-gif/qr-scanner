@@ -412,6 +412,10 @@
     </div>
 
     <h4 style="margin-top:24px;margin-bottom:6px">Under Refurb</h4>
+    <div style="display:flex;gap:10px;margin-bottom:8px">
+      <button class="btn btn-outline" id="btn-sort-workshopin" style="flex:1;margin-top:0" onclick="setDashboardSortMode('workshopIn')">Workshop In Date</button>
+      <button class="btn btn-primary" id="btn-sort-expected" style="flex:1;margin-top:0" onclick="setDashboardSortMode('expected')">Expected Out Date</button>
+    </div>
     <div class="task-count-text" id="dashboard-widget-count" style="margin:0 0 8px"></div>
     <div class="alert" id="alert-dashboard-widgets"></div>
     <div id="dashboard-widget-list"></div>
@@ -1124,6 +1128,7 @@ function submitNewMovementResponse() {
 let dashboardMachineNumber = "";
 let underRefurbRows = [];
 let underRefurbLoadedAt = 0;
+let dashboardSortMode = "expected"; // "expected" (default) or "workshopIn"
 
 function resetMachineDashboardScreen() {
   dashboardMachineNumber = "";
@@ -1214,6 +1219,7 @@ async function saveExpectedOutDate() {
       showAlert(alertEl, "success", "Expected Workshop Out Date saved.");
       if (navigator.vibrate) navigator.vibrate(100);
       btn.textContent = "Update Date";
+      loadUnderRefurbWidgets(true);
     } else {
       showAlert(alertEl, "error", data.error || "Failed to save.");
     }
@@ -1349,10 +1355,36 @@ async function loadUnderRefurbWidgets(force) {
 // The widget list is filtered server-side by Column AA (IN Workshop = Yes) -
 // only machines explicitly marked Under Refurb via Machine Movement appear
 // here. Marking a machine RFS clears that flag, which is what removes it.
+// Booked and RFS stay pinned at the top (Booked first). Only the normal Under
+// Refurb group is affected by the toggle. In "expected" mode, machines with no
+// Expected Out Date stay on top of that group, then soonest date first.
+function sortUnderRefurbRows(rows) {
+  const rank = r => { const s = (r.status || "").toLowerCase(); return s === "booked" ? 0 : s === "rfs" ? 1 : 2; };
+  return rows.slice().sort((a, b) => {
+    const rd = rank(a) - rank(b);
+    if (rd !== 0) return rd;
+    if (rank(a) === 2 && dashboardSortMode === "expected") {
+      const aEmpty = a.expectedOutTs == null, bEmpty = b.expectedOutTs == null;
+      if (aEmpty !== bEmpty) return aEmpty ? -1 : 1;
+      if (!aEmpty && a.expectedOutTs !== b.expectedOutTs) return a.expectedOutTs - b.expectedOutTs;
+    }
+    return b.daysInWorkshop - a.daysInWorkshop;
+  });
+}
+
+function setDashboardSortMode(mode) {
+  dashboardSortMode = mode;
+  renderUnderRefurbWidgets(underRefurbRows);
+}
+
 function renderUnderRefurbWidgets(rows) {
+  rows = sortUnderRefurbRows(rows);
+  const isExpected = dashboardSortMode === "expected";
+  document.getElementById("btn-sort-expected").className = "btn " + (isExpected ? "btn-primary" : "btn-outline");
+  document.getElementById("btn-sort-workshopin").className = "btn " + (isExpected ? "btn-outline" : "btn-primary");
   const countEl = document.getElementById("dashboard-widget-count");
   const container = document.getElementById("dashboard-widget-list");
-  countEl.textContent = rows.length === 0 ? "No machines currently Under Refurb." : rows.length + " machine(s), longest in workshop first";
+  countEl.textContent = rows.length === 0 ? "No machines currently Under Refurb." : rows.length + " machine(s), " + (isExpected ? "soonest Expected Out Date first (no date set shown first)" : "longest in workshop first");
   container.innerHTML = "";
 
   rows.forEach(r => {
@@ -1382,7 +1414,7 @@ function renderUnderRefurbWidgets(rows) {
       card.innerHTML =
         '<div class="task-title">' + escHtml(r.machineNumber) + '</div>' +
         '<div class="task-sub">RC No: ' + escHtml(r.rcNo || "\u2014") + '  |  YOM: ' + escHtml(String(r.yom || "\u2014")) + '  |  Model: ' + escHtml(r.model || "\u2014") + '  |  HP: ' + escHtml(String(r.hp || "\u2014")) + '</div>' +
-        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '</div>';
+        '<div class="task-meta">Category: ' + escHtml(r.category || "\u2014") + '  |  Workshop In: ' + escHtml(r.workshopInDate || "\u2014") + '  |  Days in Workshop: ' + escHtml(String(r.daysInWorkshop)) + '  |  Expected Out: ' + escHtml(r.expectedOutDate || "\u2014") + '</div>';
       card.onclick = () => openDashboardWidget(r.machineNumber);
     }
     container.appendChild(card);
