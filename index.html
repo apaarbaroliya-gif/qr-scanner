@@ -580,6 +580,17 @@
     <div class="alert" id="alert-upinv-form"></div>
   </div>
 
+  <!-- SCREEN: ZOHO SYNC -->
+  <div class="screen" id="screen-zoho-sync">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Zoho Sync</span>
+    </div>
+    <div class="task-count-text" style="margin-bottom:10px">Runs a Zoho &rarr; Google Sheet sync now, instead of waiting for its schedule.</div>
+    <div class="alert" id="alert-zoho-sync"></div>
+    <div id="zoho-sync-list"></div>
+  </div>
+
   <!-- SCREEN: INVOICE STATUS -->
   <div class="screen" id="screen-invoice-status">
     <div class="topbar">
@@ -654,7 +665,8 @@ const MODULE_META = {
   "Inventory": { icon: "&#128230;", desc: "View machines marked as Inventory" },
   "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" },
   "Upload Invoices": { icon: "&#128206;", desc: "Attach invoice PDFs to Purchase Bills" },
-  "Invoice Status": { icon: "&#129534;", desc: "View bills and update their payment status" }
+  "Invoice Status": { icon: "&#129534;", desc: "View bills and update their payment status" },
+  "Zoho Sync": { icon: "&#128260;", desc: "Run Zoho \u2192 Sheet syncs on demand" }
 };
 
 // ============================================================
@@ -810,7 +822,8 @@ const SCREEN_REFRESH_FUNCTIONS = {
   "screen-inventory": () => loadInventoryMachines(true),
   "screen-machine-dashboard": () => loadUnderRefurbWidgets(true),
   "screen-upload-invoices": () => openUploadInvoices(true),
-  "screen-invoice-status": () => openInvoiceStatus(true)
+  "screen-invoice-status": () => openInvoiceStatus(true),
+  "screen-zoho-sync": () => loadZohoSyncStatus()
 };
 let currentScreenRefreshFn = null;
 
@@ -1032,6 +1045,10 @@ async function openModule(mod) {
     document.getElementById("invstat-list").innerHTML = "";
     showScreen("screen-invoice-status");
     await openInvoiceStatus(true);
+  } else if (mod === "Zoho Sync") {
+    hideAlert(document.getElementById("alert-zoho-sync"));
+    showScreen("screen-zoho-sync");
+    await loadZohoSyncStatus();
   } else if (mod === "Employee Incentive") {
     await loadIncentiveNames();
     resetIncentiveScreen();
@@ -3173,6 +3190,80 @@ async function saveBillStatus(b, sel, btn) {
     showToast("Could not connect to server.");
   } finally {
     btn.disabled = false; btn.textContent = "Save";
+    hideBusyOverlay();
+  }
+}
+
+
+// ============================================================
+// ZOHO SYNC - run one branch of the n8n "Zoho Assembly Sync" workflow
+// ============================================================
+const ZOHO_SYNC_INFO = {
+  stock_out: { icon: "&#128230;", desc: "Stock out / assembly data from Zoho. Then drags the formulas in Assembly Details columns N and O to the new rows." },
+  purchase_bills: { icon: "&#129534;", desc: "New and updated Purchase Bills from Zoho (feeds Upload Invoices and Invoice Status)." },
+  sale_quantity: { icon: "&#128200;", desc: "Sale quantities and stock details from Zoho." }
+};
+let zohoSyncJobs = [];
+
+async function loadZohoSyncStatus() {
+  const alertEl = document.getElementById("alert-zoho-sync");
+  const list = document.getElementById("zoho-sync-list");
+  if (!zohoSyncJobs.length) list.innerHTML = '<div class="task-count-text">Loading...</div>';
+  try {
+    const data = await callApi("getZohoSyncStatus", {});
+    if (data.success) { zohoSyncJobs = data.jobs || []; renderZohoSyncList(); }
+    else showAlert(alertEl, "error", data.error || "Could not load sync status.");
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+  }
+}
+
+function renderZohoSyncList() {
+  const list = document.getElementById("zoho-sync-list");
+  list.innerHTML = "";
+  zohoSyncJobs.forEach(j => {
+    const info = ZOHO_SYNC_INFO[j.id] || { icon: "&#128260;", desc: "" };
+    const last = j.last ? "Last run from app: " + j.last.at + " by " + j.last.by + " \u2014 " + j.last.result : "Not run from the app yet.";
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML =
+      '<div class="task-title">' + info.icon + ' ' + escHtml(j.label) + '</div>' +
+      '<div class="task-sub">' + escHtml(info.desc) + '</div>' +
+      '<div class="task-meta">' + escHtml(last) + '</div>' +
+      '<button class="btn btn-primary" style="margin-top:12px"' + (j.running ? " disabled" : "") + '>' +
+        (j.running ? "Running..." : "Run Now") + '</button>' +
+      '<div class="alert"></div>';
+    const btn = card.querySelector("button");
+    const alertEl = card.querySelector(".alert");
+    btn.onclick = () => runZohoSync(j, btn, alertEl);
+    list.appendChild(card);
+  });
+}
+
+async function runZohoSync(job, btn, alertEl) {
+  if (!confirm("Run \"" + job.label + "\" now?")) return;
+  hideAlert(alertEl);
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Running... (may take a minute)';
+  showBusyOverlay();
+  try {
+    const data = await callApi("runZohoSync", { username: currentUser, job: job.id });
+    if (data.success) {
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      showToast(job.label + (data.timedOut ? " started." : " done."));
+      await loadZohoSyncStatus();
+      // re-find this job's new card and show the result there
+      const idx = zohoSyncJobs.findIndex(x => x.id === job.id);
+      const newAlert = document.querySelectorAll("#zoho-sync-list .card .alert")[idx];
+      if (newAlert) showAlert(newAlert, data.timedOut ? "info" : "success", data.message);
+      if (job.id === "purchase_bills") invoiceBillsLoadedAt = 0; // invoice screens reload fresh
+    } else {
+      showAlert(alertEl, "error", data.error || "Sync failed.");
+      btn.disabled = false; btn.textContent = "Run Now";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+    btn.disabled = false; btn.textContent = "Run Now";
+  } finally {
     hideBusyOverlay();
   }
 }
