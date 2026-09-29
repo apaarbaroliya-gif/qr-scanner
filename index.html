@@ -126,6 +126,26 @@
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.3);
     border-top-color:#1a1a1a; border-radius:50%; animation: spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg);} }
+  .inv-toggle { display:flex; align-items:center; gap:8px; color: var(--text); font-size: 13px; margin: 12px 0 4px; }
+  .inv-toggle input { width:18px; height:18px; accent-color: var(--accent); }
+  .inv-chip { display:inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight:700; border:1px solid var(--border); color: var(--muted); }
+  .inv-chip.s-pending { color:#e3b341; border-color:#9e6a03; background: rgba(210,153,34,.12); }
+  .inv-chip.s-approval-pending { color:#79c0ff; border-color:#1f6feb; background: rgba(56,139,253,.12); }
+  .inv-chip.s-approved { color:#56d364; border-color:#238636; background: rgba(46,160,67,.12); }
+  .inv-chip.s-issue-raised { color:#ff7b72; border-color:#da3633; background: rgba(218,54,51,.12); }
+  .inv-chip.s-payment-done, .inv-chip.s-done { color:#8b949e; border-color:#30363d; }
+  .inv-chip.s-hold, .inv-chip.s-check { color:#db61a2; border-color:#8e1a5a; background: rgba(219,84,150,.12); }
+  .inv-chip.s-zaggle { color:#d2a8ff; border-color:#8957e5; background: rgba(137,87,229,.12); }
+  .inv-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top: 6px; }
+  .inv-amount { font-size: 15px; font-weight:700; }
+  .inv-file-link { font-size: 12px; color: var(--accent); text-decoration: none; }
+  .inv-nofile { font-size: 12px; color: var(--warning); }
+  .inv-status-row { display:flex; gap:8px; margin-top: 10px; }
+  .inv-status-row select { flex:1; padding: 10px 12px; }
+  .inv-status-row .btn { width:auto; margin:0; padding: 10px 16px; }
+  .module-badge { margin-left:auto; background: var(--danger); color:#fff; font-size: 12px; font-weight:700;
+    min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; display:none; align-items:center; justify-content:center; }
+  .module-badge.show { display:flex; }
   .cam-box { width:100%; border-radius: 12px; overflow:hidden; background:#000; display:none; }
   .cam-overlay { text-align:center; background: var(--card); border:1px solid var(--border);
     border-radius: 12px; padding: 26px 18px; }
@@ -512,6 +532,56 @@
     <div id="inventory-list"></div>
   </div>
 
+  <!-- SCREEN: UPLOAD INVOICES - bill list -->
+  <div class="screen" id="screen-upload-invoices">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Upload Invoices</span>
+    </div>
+    <input type="text" id="upinv-search" placeholder="Search vendor or bill number..." oninput="renderUploadInvoiceList()">
+    <label class="inv-toggle"><input type="checkbox" id="upinv-show-all" onchange="renderUploadInvoiceList()"> Show all bills (to replace an uploaded invoice)</label>
+    <div class="task-count-text" id="upinv-count"></div>
+    <div class="alert" id="alert-upinv"></div>
+    <div id="upinv-list"></div>
+  </div>
+
+  <!-- SCREEN: UPLOAD INVOICES - upload form for one bill -->
+  <div class="screen" id="screen-upload-invoice-form">
+    <div class="topbar">
+      <button class="btn-outline" onclick="backToUploadList()">&larr; Back</button>
+      <span class="page-title">Attach Invoice</span>
+    </div>
+    <div class="card" id="upinv-bill-card"></div>
+    <div class="card">
+      <div class="task-sub" style="margin-bottom:6px">Upload ONE PDF, or take/choose photos of every page (they are combined into one PDF automatically).</div>
+      <input type="file" id="upinv-pdf-input" accept="application/pdf" style="display:none" onchange="onInvoicePdfChosen(this)">
+      <input type="file" id="upinv-camera-input" accept="image/*" capture="environment" style="display:none" onchange="onInvoicePhotosChosen(this)">
+      <input type="file" id="upinv-gallery-input" accept="image/*" multiple style="display:none" onchange="onInvoicePhotosChosen(this)">
+      <div class="scan-btn-row">
+        <button class="btn btn-outline" onclick="document.getElementById('upinv-camera-input').click()">&#128247; Camera</button>
+        <button class="btn btn-outline" onclick="document.getElementById('upinv-gallery-input').click()">&#128444;&#65039; Photos</button>
+      </div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="document.getElementById('upinv-pdf-input').click()">&#128196; Choose PDF</button>
+      <div id="upinv-selection" class="task-count-text" style="margin-top:12px"></div>
+      <div class="item-photo-thumbs" id="upinv-thumbs"></div>
+    </div>
+    <button class="btn btn-success" id="btn-upload-invoice" onclick="submitInvoiceUpload()">Upload Invoice</button>
+    <div class="alert" id="alert-upinv-form"></div>
+  </div>
+
+  <!-- SCREEN: INVOICE STATUS -->
+  <div class="screen" id="screen-invoice-status">
+    <div class="topbar">
+      <button class="btn-outline" onclick="goHome()">&larr; Back</button>
+      <span class="page-title">Invoice Status</span>
+    </div>
+    <select id="invstat-filter" onchange="renderInvoiceStatusList()"></select>
+    <input type="text" id="invstat-search" style="margin-top:10px" placeholder="Search vendor or bill number..." oninput="renderInvoiceStatusList()">
+    <div class="task-count-text" id="invstat-count"></div>
+    <div class="alert" id="alert-invstat"></div>
+    <div id="invstat-list"></div>
+  </div>
+
 </div>
 <div id="toast"></div>
 <button id="refresh-fab" onclick="refreshAppData()" title="Refresh data">&#8635;</button>
@@ -565,7 +635,9 @@ const MODULE_META = {
   "Machine Movement Overview": { icon: "&#128200;", desc: "Monthly machine flow overview" },
   "Audit": { icon: "&#128269;", desc: "Count stock and compare against Zoho" },
   "Inventory": { icon: "&#128230;", desc: "View machines marked as Inventory" },
-  "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" }
+  "Employee Incentive": { icon: "&#128176;", desc: "Log daily half-day/full-day incentives" },
+  "Upload Invoices": { icon: "&#128206;", desc: "Attach invoice PDFs to Purchase Bills" },
+  "Invoice Status": { icon: "&#129534;", desc: "View bills and update their payment status" }
 };
 
 // ============================================================
@@ -719,7 +791,9 @@ const SCREEN_REFRESH_FUNCTIONS = {
   "screen-audit": () => loadAuditPendingList(),
   "screen-movement-overview": () => loadMonthlyMovementData(true),
   "screen-inventory": () => loadInventoryMachines(true),
-  "screen-machine-dashboard": () => loadUnderRefurbWidgets(true)
+  "screen-machine-dashboard": () => loadUnderRefurbWidgets(true),
+  "screen-upload-invoices": () => openUploadInvoices(true),
+  "screen-invoice-status": () => openInvoiceStatus(true)
 };
 let currentScreenRefreshFn = null;
 
@@ -890,9 +964,11 @@ function renderHome() {
     div.className = "module-card";
     div.onclick = () => openModule(mod);
     div.innerHTML = '<div class="module-icon">' + meta.icon + '</div>' +
-      '<div class="module-text"><h4>' + escHtml(mod) + '</h4><p>' + escHtml(meta.desc) + '</p></div>';
+      '<div class="module-text"><h4>' + escHtml(mod) + '</h4><p>' + escHtml(meta.desc) + '</p></div>' +
+      (mod === "Upload Invoices" ? '<div class="module-badge" id="badge-upload-invoices"></div>' : '');
     grid.appendChild(div);
   });
+  refreshUploadInvoiceBadge();
 }
 
 async function openModule(mod) {
@@ -925,6 +1001,17 @@ async function openModule(mod) {
     await loadDropdownData();
     resetPdiViewerScreen();
     showScreen("screen-pdi-viewer");
+  } else if (mod === "Upload Invoices") {
+    document.getElementById("upinv-search").value = "";
+    document.getElementById("upinv-show-all").checked = false;
+    document.getElementById("upinv-list").innerHTML = "";
+    showScreen("screen-upload-invoices");
+    await openUploadInvoices(true);
+  } else if (mod === "Invoice Status") {
+    document.getElementById("invstat-search").value = "";
+    document.getElementById("invstat-list").innerHTML = "";
+    showScreen("screen-invoice-status");
+    await openInvoiceStatus(true);
   } else if (mod === "Employee Incentive") {
     await loadIncentiveNames();
     resetIncentiveScreen();
@@ -2571,6 +2658,363 @@ function photoImgHtml(p, extraClass) {
       'color:var(--muted);font-size:11px;text-align:center;padding:6px">Photo unavailable</div>';
   }
   return '<img src="' + p.dataUrl + '" loading="lazy" class="' + (extraClass || "") + '">';
+}
+
+
+// ============================================================
+// INVOICES - shared data for "Upload Invoices" and "Invoice Status"
+// (Purchase Bills tab of the Zoho Report sheet; Mail column = status)
+// ============================================================
+let invoiceBills = null;          // cached bill list from getPurchaseBills
+let invoiceBillsLoadedAt = 0;
+let invoiceStatuses = [];
+let invoiceUploadSkipStatuses = [];
+let selectedUploadBill = null;
+let invoicePdfFile = null;        // a chosen PDF (File)
+let invoicePhotoFiles = [];       // chosen photos (File[]), merged into one PDF on upload
+const INVOICE_MAX_BYTES = 15 * 1024 * 1024;
+
+function formatINR(n) {
+  return "\u20B9" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function statusClass(s) { return "s-" + String(s || "").toLowerCase().replace(/\s+/g, "-"); }
+function driveViewUrl(fileId) { return "https://drive.google.com/file/d/" + encodeURIComponent(fileId) + "/view"; }
+function billNeedsInvoice(b) { return !b.fileId && invoiceUploadSkipStatuses.indexOf(b.mail) === -1; }
+function billMatchesSearch(b, q) {
+  if (!q) return true;
+  q = q.toLowerCase();
+  return b.vendor.toLowerCase().includes(q) || b.billNumber.toLowerCase().includes(q);
+}
+
+async function loadInvoiceBills(force) {
+  if (!force && invoiceBills && (Date.now() - invoiceBillsLoadedAt < 5 * 60 * 1000)) return true;
+  const data = await callApiWithProgress("getPurchaseBills", {}, "Loading bills...", 10);
+  if (!data.success) throw new Error(data.error || "Could not load bills.");
+  invoiceBills = data.bills || [];
+  invoiceStatuses = data.statuses || [];
+  invoiceUploadSkipStatuses = data.uploadSkipStatuses || [];
+  invoiceBillsLoadedAt = Date.now();
+  updateUploadInvoiceBadge(invoiceBills.filter(billNeedsInvoice).length);
+  return true;
+}
+
+// Home-screen badge on the "Upload Invoices" tile
+function updateUploadInvoiceBadge(count) {
+  const badge = document.getElementById("badge-upload-invoices");
+  if (!badge) return;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.classList.toggle("show", count > 0);
+}
+async function refreshUploadInvoiceBadge() {
+  if (!currentModules.includes("Upload Invoices")) return;
+  try {
+    const data = await callApi("getInvoiceUploadCount", {});
+    if (data.success) updateUploadInvoiceBadge(data.count);
+  } catch (e) { /* badge is best-effort */ }
+}
+
+// ---------------- UPLOAD INVOICES ----------------
+async function openUploadInvoices(force) {
+  const alertEl = document.getElementById("alert-upinv");
+  hideAlert(alertEl);
+  document.getElementById("upinv-count").textContent = "Loading...";
+  try {
+    await loadInvoiceBills(force);
+    renderUploadInvoiceList();
+  } catch (e) {
+    document.getElementById("upinv-count").textContent = "";
+    showAlert(alertEl, "error", e.message && e.message !== "Failed to fetch" ? e.message : "Could not connect to server.");
+  }
+}
+
+function renderUploadInvoiceList() {
+  if (!invoiceBills) return;
+  const q = document.getElementById("upinv-search").value.trim();
+  const showAll = document.getElementById("upinv-show-all").checked;
+  const rows = invoiceBills.filter(b => (showAll || billNeedsInvoice(b)) && billMatchesSearch(b, q));
+  const waiting = invoiceBills.filter(billNeedsInvoice).length;
+  document.getElementById("upinv-count").textContent = showAll
+    ? rows.length + " bill(s) shown  |  " + waiting + " waiting for an invoice"
+    : (waiting === 0 ? "All bills have invoices attached." : rows.length + " bill(s) waiting for an invoice");
+  const container = document.getElementById("upinv-list");
+  container.innerHTML = "";
+  rows.slice(0, 200).forEach(b => {
+    const card = document.createElement("div");
+    card.className = "task-card";
+    card.style.cursor = "pointer";
+    card.onclick = () => openUploadInvoiceForm(b.billId);
+    card.innerHTML =
+      '<div class="task-title">' + escHtml(b.vendor) + '</div>' +
+      '<div class="task-sub">Bill ' + escHtml(b.billNumber) + '  |  ' + escHtml(b.billDate) + '</div>' +
+      '<div class="inv-row"><span class="inv-amount">' + formatINR(b.total) + '</span>' +
+      '<span class="inv-chip ' + statusClass(b.mail) + '">' + escHtml(b.mail) + '</span></div>' +
+      (b.fileId ? '<div class="task-meta" style="margin-top:6px">&#128206; Invoice attached - tap to replace</div>' : '');
+    container.appendChild(card);
+  });
+  if (rows.length > 200) {
+    const more = document.createElement("div");
+    more.className = "task-count-text";
+    more.textContent = "Showing first 200 - use search to narrow down.";
+    container.appendChild(more);
+  }
+}
+
+function openUploadInvoiceForm(billId) {
+  selectedUploadBill = (invoiceBills || []).find(b => b.billId === billId) || null;
+  if (!selectedUploadBill) return;
+  invoicePdfFile = null;
+  invoicePhotoFiles = [];
+  hideAlert(document.getElementById("alert-upinv-form"));
+  const b = selectedUploadBill;
+  document.getElementById("upinv-bill-card").innerHTML =
+    '<div class="task-title">' + escHtml(b.vendor) + '</div>' +
+    '<div class="task-sub">Bill ' + escHtml(b.billNumber) + '  |  ' + escHtml(b.billDate) + '</div>' +
+    '<div class="inv-amount">' + formatINR(b.total) + '</div>' +
+    (b.fileId ? '<div class="alert alert-info show" style="margin-top:10px">This bill already has an invoice (<a class="inv-file-link" target="_blank" href="' +
+      driveViewUrl(b.fileId) + '">view</a>). Uploading again will REPLACE it.</div>' : '') +
+    '<div class="task-meta" style="margin-top:8px">Will be saved as: Invoices / ' + escHtml(b.vendor) + ' / ' + escHtml(b.billNumber) + '.pdf</div>';
+  const btn = document.getElementById("btn-upload-invoice");
+  btn.style.display = "block"; btn.disabled = false; btn.textContent = b.fileId ? "Replace Invoice" : "Upload Invoice";
+  renderInvoiceSelection();
+  showScreen("screen-upload-invoice-form");
+}
+
+function backToUploadList() {
+  showScreen("screen-upload-invoices");
+  renderUploadInvoiceList();
+}
+
+function onInvoicePdfChosen(input) {
+  const f = input.files && input.files[0];
+  input.value = "";
+  if (!f) return;
+  if (f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) { showToast("Please choose a PDF file."); return; }
+  if (f.size > INVOICE_MAX_BYTES) { showToast("PDF is larger than 15 MB."); return; }
+  invoicePdfFile = f;
+  invoicePhotoFiles = []; // PDF and photos are either/or
+  renderInvoiceSelection();
+}
+
+function onInvoicePhotosChosen(input) {
+  const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
+  input.value = "";
+  if (!files.length) return;
+  invoicePdfFile = null;
+  invoicePhotoFiles = invoicePhotoFiles.concat(files).slice(0, 15);
+  renderInvoiceSelection();
+}
+
+function removeInvoicePhoto(i) {
+  invoicePhotoFiles.splice(i, 1);
+  renderInvoiceSelection();
+}
+
+function renderInvoiceSelection() {
+  const sel = document.getElementById("upinv-selection");
+  const thumbs = document.getElementById("upinv-thumbs");
+  thumbs.innerHTML = "";
+  if (invoicePdfFile) {
+    sel.textContent = "\u2705 PDF selected: " + invoicePdfFile.name + " (" + (invoicePdfFile.size / 1024 / 1024).toFixed(2) + " MB)";
+  } else if (invoicePhotoFiles.length) {
+    sel.textContent = "\u2705 " + invoicePhotoFiles.length + " page photo(s) - will be combined into one PDF in this order";
+    invoicePhotoFiles.forEach((f, i) => {
+      const url = URL.createObjectURL(f);
+      const div = document.createElement("div");
+      div.className = "item-photo-thumb";
+      div.innerHTML = '<img src="' + url + '"><button class="remove-photo-btn" onclick="removeInvoicePhoto(' + i + ')">&times;</button>';
+      thumbs.appendChild(div);
+    });
+  } else {
+    sel.textContent = "No file selected yet.";
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("Could not read file."));
+    r.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not read one of the photos."));
+    img.src = src;
+  });
+}
+
+// Resizes each photo (max 1600px long edge, JPEG ~0.7) and puts one per page
+// into a single PDF. Returns base64 (no data: prefix).
+async function photosToPdfBase64(files) {
+  const { jsPDF } = window.jspdf;
+  let doc = null;
+  for (const f of files) {
+    const img = await loadImage(await readFileAsDataUrl(f));
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const jpeg = canvas.toDataURL("image/jpeg", 0.7);
+    const orientation = w > h ? "l" : "p";
+    if (!doc) doc = new jsPDF({ orientation: orientation, unit: "px", format: [w, h], hotfixes: ["px_scaling"] });
+    else doc.addPage([w, h], orientation);
+    doc.addImage(jpeg, "JPEG", 0, 0, w, h);
+  }
+  return doc.output("datauristring").split(",")[1];
+}
+
+async function submitInvoiceUpload() {
+  const alertEl = document.getElementById("alert-upinv-form");
+  const btn = document.getElementById("btn-upload-invoice");
+  hideAlert(alertEl);
+  if (!selectedUploadBill) return;
+  if (!invoicePdfFile && !invoicePhotoFiles.length) { showAlert(alertEl, "error", "Please choose a PDF or take photos first."); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Preparing...';
+  showBusyOverlay();
+  let base64Pdf;
+  try {
+    base64Pdf = invoicePdfFile
+      ? (await readFileAsDataUrl(invoicePdfFile)).split(",")[1]
+      : await photosToPdfBase64(invoicePhotoFiles);
+  } catch (e) {
+    hideBusyOverlay();
+    btn.disabled = false; btn.textContent = "Upload Invoice";
+    showAlert(alertEl, "error", e.message || "Could not prepare the file.");
+    return;
+  }
+  hideBusyOverlay();
+  if (base64Pdf.length * 0.75 > INVOICE_MAX_BYTES) {
+    btn.disabled = false; btn.textContent = "Upload Invoice";
+    showAlert(alertEl, "error", "The PDF is larger than 15 MB. Use fewer photos or a smaller PDF.");
+    return;
+  }
+
+  btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  try {
+    const data = await callApiWithProgress("uploadInvoice",
+      { username: currentUser, billId: selectedUploadBill.billId, base64Pdf: base64Pdf }, "Uploading invoice...", 90);
+    if (data.success) {
+      selectedUploadBill.fileId = data.fileId;
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      updateUploadInvoiceBadge((invoiceBills || []).filter(billNeedsInvoice).length);
+      showToast((data.replaced ? "Invoice replaced: " : "Invoice saved: ") + data.folderName + " / " + data.fileName);
+      backToUploadList();
+    } else {
+      showAlert(alertEl, "error", data.error || "Upload failed.");
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server. Please try again.");
+  } finally {
+    btn.disabled = false; btn.textContent = selectedUploadBill && selectedUploadBill.fileId ? "Replace Invoice" : "Upload Invoice";
+  }
+}
+
+// ---------------- INVOICE STATUS ----------------
+async function openInvoiceStatus(force) {
+  const alertEl = document.getElementById("alert-invstat");
+  hideAlert(alertEl);
+  document.getElementById("invstat-count").textContent = "Loading...";
+  try {
+    await loadInvoiceBills(force);
+    buildInvoiceStatusFilter();
+    renderInvoiceStatusList();
+  } catch (e) {
+    document.getElementById("invstat-count").textContent = "";
+    showAlert(alertEl, "error", e.message && e.message !== "Failed to fetch" ? e.message : "Could not connect to server.");
+  }
+}
+
+function buildInvoiceStatusFilter() {
+  const sel = document.getElementById("invstat-filter");
+  const prev = sel.value || "Pending";
+  const opts = ["Pending", "__open__", "__all__"].concat(invoiceStatuses.filter(s => s !== "Pending"));
+  sel.innerHTML = "";
+  opts.forEach(v => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v === "__open__" ? "All except Payment Done / Done" : v === "__all__" ? "All bills" : v;
+    sel.appendChild(o);
+  });
+  sel.value = opts.includes(prev) ? prev : "Pending";
+}
+
+function invoiceFilterMatch(b, f) {
+  if (f === "__all__") return true;
+  if (f === "__open__") return b.mail !== "Payment Done" && b.mail !== "Done";
+  return b.mail === f;
+}
+
+function renderInvoiceStatusList() {
+  if (!invoiceBills) return;
+  const f = document.getElementById("invstat-filter").value;
+  const q = document.getElementById("invstat-search").value.trim();
+  const rows = invoiceBills.filter(b => invoiceFilterMatch(b, f) && billMatchesSearch(b, q));
+  const total = rows.reduce((s, b) => s + b.total, 0);
+  document.getElementById("invstat-count").textContent = rows.length + " bill(s)  |  " + formatINR(total);
+  const container = document.getElementById("invstat-list");
+  container.innerHTML = "";
+  rows.slice(0, 200).forEach(b => container.appendChild(buildInvoiceStatusCard(b)));
+  if (rows.length > 200) {
+    const more = document.createElement("div");
+    more.className = "task-count-text";
+    more.textContent = "Showing first 200 - use search or the filter to narrow down.";
+    container.appendChild(more);
+  }
+}
+
+function buildInvoiceStatusCard(b) {
+  const card = document.createElement("div");
+  card.className = "task-card";
+  const options = invoiceStatuses.slice();
+  if (!options.includes(b.mail)) options.unshift(b.mail); // unknown legacy value - still show it
+  card.innerHTML =
+    '<div class="task-title">' + escHtml(b.vendor) + '</div>' +
+    '<div class="task-sub">Bill ' + escHtml(b.billNumber) + '  |  ' + escHtml(b.billDate) + (b.zohoStatus ? '  |  Zoho: ' + escHtml(b.zohoStatus) : '') + '</div>' +
+    '<div class="inv-row"><span class="inv-amount">' + formatINR(b.total) + '</span>' +
+    '<span class="inv-chip ' + statusClass(b.mail) + '">' + escHtml(b.mail) + '</span></div>' +
+    '<div style="margin-top:6px">' + (b.fileId
+      ? '<a class="inv-file-link" target="_blank" href="' + driveViewUrl(b.fileId) + '">&#128206; View invoice</a>'
+      : '<span class="inv-nofile">&#9888;&#65039; No invoice uploaded</span>') + '</div>' +
+    '<div class="inv-status-row"><select>' +
+    options.map(s => '<option value="' + escHtml(s) + '"' + (s === b.mail ? " selected" : "") + '>' + escHtml(s) + '</option>').join("") +
+    '</select><button class="btn btn-primary">Save</button></div>';
+  const sel = card.querySelector("select");
+  const btn = card.querySelector("button");
+  btn.onclick = () => saveBillStatus(b, sel, btn);
+  return card;
+}
+
+async function saveBillStatus(b, sel, btn) {
+  const newStatus = sel.value;
+  if (newStatus === b.mail) { showToast("Status is already " + newStatus + "."); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  showBusyOverlay();
+  try {
+    const data = await callApi("updateBillStatus",
+      { username: currentUser, billId: b.billId, newStatus: newStatus, expectedStatus: b.mail });
+    if (data.success) {
+      b.mail = data.status;
+      showToast(b.billNumber + " \u2192 " + data.status);
+      renderInvoiceStatusList();
+      updateUploadInvoiceBadge(invoiceBills.filter(billNeedsInvoice).length);
+    } else {
+      if (data.conflict && data.currentStatus) { b.mail = data.currentStatus; renderInvoiceStatusList(); }
+      showToast(data.error || "Could not save.");
+    }
+  } catch (e) {
+    showToast("Could not connect to server.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Save";
+    hideBusyOverlay();
+  }
 }
 
 // ============================================================
