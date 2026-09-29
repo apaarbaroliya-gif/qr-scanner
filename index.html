@@ -143,6 +143,10 @@
   .inv-status-row { display:flex; gap:8px; margin-top: 10px; }
   .inv-status-row select { flex:1; padding: 10px 12px; }
   .inv-status-row .btn { width:auto; margin:0; padding: 10px 16px; }
+  .inv-clear-btn { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none;
+    color: var(--muted); font-size: 22px; line-height:1; padding: 4px 8px; cursor:pointer; display:none; }
+  .inv-clear-btn.show { display:block; }
+  #upinv-vendor-search { padding-right: 38px; }
   .module-badge { margin-left:auto; background: var(--danger); color:#fff; font-size: 12px; font-weight:700;
     min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; display:none; align-items:center; justify-content:center; }
   .module-badge.show { display:flex; }
@@ -538,8 +542,15 @@
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
       <span class="page-title">Upload Invoices</span>
     </div>
-    <input type="text" id="upinv-search" placeholder="Search vendor or bill number..." oninput="renderUploadInvoiceList()">
-    <label class="inv-toggle"><input type="checkbox" id="upinv-show-all" onchange="renderUploadInvoiceList()"> Show all bills (to replace an uploaded invoice)</label>
+    <label style="margin-top:0">Vendor</label>
+    <div class="search-wrap">
+      <input type="text" id="upinv-vendor-search" autocomplete="off" placeholder="All vendors - type to search..."
+        oninput="filterUploadVendorDropdown()" onfocus="filterUploadVendorDropdown()" onblur="onUploadVendorBlur()">
+      <button class="inv-clear-btn" id="upinv-vendor-clear" onclick="clearUploadVendor()" title="Clear vendor">&times;</button>
+      <div class="search-dropdown" id="upinv-vendor-dropdown"></div>
+    </div>
+    <label>Status</label>
+    <select id="upinv-status-filter" onchange="renderUploadInvoiceList()"></select>
     <div class="task-count-text" id="upinv-count"></div>
     <div class="alert" id="alert-upinv"></div>
     <div id="upinv-list"></div>
@@ -1002,8 +1013,10 @@ async function openModule(mod) {
     resetPdiViewerScreen();
     showScreen("screen-pdi-viewer");
   } else if (mod === "Upload Invoices") {
-    document.getElementById("upinv-search").value = "";
-    document.getElementById("upinv-show-all").checked = false;
+    selectedUploadVendor = "";
+    document.getElementById("upinv-vendor-search").value = "";
+    document.getElementById("upinv-vendor-clear").classList.remove("show");
+    document.getElementById("upinv-status-filter").value = "__waiting__";
     document.getElementById("upinv-list").innerHTML = "";
     showScreen("screen-upload-invoices");
     await openUploadInvoices(true);
@@ -2670,6 +2683,7 @@ let invoiceBillsLoadedAt = 0;
 let invoiceStatuses = [];
 let invoiceUploadSkipStatuses = [];
 let selectedUploadBill = null;
+let selectedUploadVendor = "";    // "" = all vendors
 let invoicePdfFile = null;        // a chosen PDF (File)
 let invoicePhotoFiles = [];       // chosen photos (File[]), merged into one PDF on upload
 const INVOICE_MAX_BYTES = 15 * 1024 * 1024;
@@ -2720,6 +2734,7 @@ async function openUploadInvoices(force) {
   document.getElementById("upinv-count").textContent = "Loading...";
   try {
     await loadInvoiceBills(force);
+    buildUploadStatusFilter();
     renderUploadInvoiceList();
   } catch (e) {
     document.getElementById("upinv-count").textContent = "";
@@ -2729,13 +2744,16 @@ async function openUploadInvoices(force) {
 
 function renderUploadInvoiceList() {
   if (!invoiceBills) return;
-  const q = document.getElementById("upinv-search").value.trim();
-  const showAll = document.getElementById("upinv-show-all").checked;
-  const rows = invoiceBills.filter(b => (showAll || billNeedsInvoice(b)) && billMatchesSearch(b, q));
+  const statusF = document.getElementById("upinv-status-filter").value || "__waiting__";
+  const rows = invoiceBills.filter(b =>
+    (!selectedUploadVendor || b.vendor === selectedUploadVendor) &&
+    (statusF === "__waiting__" ? billNeedsInvoice(b) : statusF === "__all__" ? true : b.mail === statusF));
   const waiting = invoiceBills.filter(billNeedsInvoice).length;
-  document.getElementById("upinv-count").textContent = showAll
-    ? rows.length + " bill(s) shown  |  " + waiting + " waiting for an invoice"
-    : (waiting === 0 ? "All bills have invoices attached." : rows.length + " bill(s) waiting for an invoice");
+  const withoutFile = rows.filter(b => !b.fileId).length;
+  document.getElementById("upinv-count").textContent = statusF === "__waiting__"
+    ? (rows.length === 0 ? (selectedUploadVendor ? "No bills waiting for this vendor." : "All bills have invoices attached.")
+                         : rows.length + " bill(s) waiting for an invoice")
+    : rows.length + " bill(s) shown  |  " + withoutFile + " without invoice  |  " + waiting + " waiting in total";
   const container = document.getElementById("upinv-list");
   container.innerHTML = "";
   rows.slice(0, 200).forEach(b => {
@@ -2757,6 +2775,89 @@ function renderUploadInvoiceList() {
     more.textContent = "Showing first 200 - use search to narrow down.";
     container.appendChild(more);
   }
+}
+
+function buildUploadStatusFilter() {
+  const sel = document.getElementById("upinv-status-filter");
+  const prev = sel.value || "__waiting__";
+  const opts = [["__waiting__", "Waiting for invoice"], ["__all__", "All statuses"]]
+    .concat(invoiceStatuses.map(s => [s, s]));
+  sel.innerHTML = "";
+  opts.forEach(([v, t]) => {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = t;
+    sel.appendChild(o);
+  });
+  sel.value = opts.some(o => o[0] === prev) ? prev : "__waiting__";
+}
+
+// Vendor list for the dropdown, with a count of bills waiting per vendor
+function uploadVendorList() {
+  const map = {};
+  (invoiceBills || []).forEach(b => {
+    if (!map[b.vendor]) map[b.vendor] = 0;
+    if (billNeedsInvoice(b)) map[b.vendor]++;
+  });
+  return Object.keys(map).sort((a, b) => (map[b] - map[a]) || a.localeCompare(b))
+    .map(v => ({ name: v, waiting: map[v] }));
+}
+
+function filterUploadVendorDropdown() {
+  const input = document.getElementById("upinv-vendor-search");
+  const dropdown = document.getElementById("upinv-vendor-dropdown");
+  const q = input.value.trim().toLowerCase();
+  document.getElementById("upinv-vendor-clear").classList.toggle("show", !!input.value);
+  // Typing something different from the chosen vendor means "not selected yet"
+  if (selectedUploadVendor && input.value !== selectedUploadVendor) {
+    selectedUploadVendor = "";
+    renderUploadInvoiceList();
+  }
+  const list = uploadVendorList().filter(v => !q || v.name.toLowerCase().includes(q));
+  dropdown.innerHTML = "";
+  if (!list.length) {
+    dropdown.innerHTML = '<div class="search-option" style="color:var(--muted)">No vendors found</div>';
+  } else {
+    list.slice(0, 50).forEach(v => {
+      const div = document.createElement("div");
+      div.className = "search-option";
+      const idx = q ? v.name.toLowerCase().indexOf(q) : -1;
+      const nameHtml = idx >= 0
+        ? escHtml(v.name.slice(0, idx)) + "<mark>" + escHtml(v.name.slice(idx, idx + q.length)) + "</mark>" + escHtml(v.name.slice(idx + q.length))
+        : escHtml(v.name);
+      div.innerHTML = nameHtml + (v.waiting ? ' <span style="color:var(--warning);font-size:12px">(' + v.waiting + ' waiting)</span>' : '');
+      div.onmousedown = () => selectUploadVendor(v.name);
+      dropdown.appendChild(div);
+    });
+  }
+  dropdown.classList.add("open");
+}
+
+function selectUploadVendor(name) {
+  selectedUploadVendor = name;
+  document.getElementById("upinv-vendor-search").value = name;
+  document.getElementById("upinv-vendor-clear").classList.add("show");
+  document.getElementById("upinv-vendor-dropdown").classList.remove("open");
+  renderUploadInvoiceList();
+}
+
+function clearUploadVendor() {
+  selectedUploadVendor = "";
+  document.getElementById("upinv-vendor-search").value = "";
+  document.getElementById("upinv-vendor-clear").classList.remove("show");
+  document.getElementById("upinv-vendor-dropdown").classList.remove("open");
+  renderUploadInvoiceList();
+}
+
+function onUploadVendorBlur() {
+  setTimeout(() => {
+    document.getElementById("upinv-vendor-dropdown").classList.remove("open");
+    // Leaving the box with half-typed text that isn't a vendor: reset to "All vendors"
+    const input = document.getElementById("upinv-vendor-search");
+    if (!selectedUploadVendor && input.value) {
+      input.value = "";
+      document.getElementById("upinv-vendor-clear").classList.remove("show");
+    }
+  }, 150);
 }
 
 function openUploadInvoiceForm(billId) {
