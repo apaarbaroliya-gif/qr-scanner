@@ -586,6 +586,12 @@
       <button class="btn-outline" onclick="goHome()">&larr; Back</button>
       <span class="page-title">Invoice Status</span>
     </div>
+    <div class="card" id="drafter-card">
+      <div class="task-title">&#128231; Draft Payment Mails</div>
+      <div class="task-sub" id="drafter-summary" style="margin-bottom:0">Loading...</div>
+      <button class="btn btn-primary" id="btn-run-drafter" style="margin-top:12px" onclick="runPaymentDrafter()" disabled>Create Gmail Drafts</button>
+      <div class="alert" id="alert-drafter"></div>
+    </div>
     <select id="invstat-filter" onchange="renderInvoiceStatusList()"></select>
     <input type="text" id="invstat-search" style="margin-top:10px" placeholder="Search vendor or bill number..." oninput="renderInvoiceStatusList()">
     <div class="task-count-text" id="invstat-count"></div>
@@ -1022,6 +1028,7 @@ async function openModule(mod) {
     await openUploadInvoices(true);
   } else if (mod === "Invoice Status") {
     document.getElementById("invstat-search").value = "";
+    hideAlert(document.getElementById("alert-drafter"));
     document.getElementById("invstat-list").innerHTML = "";
     showScreen("screen-invoice-status");
     await openInvoiceStatus(true);
@@ -3027,6 +3034,7 @@ async function openInvoiceStatus(force) {
     await loadInvoiceBills(force);
     buildInvoiceStatusFilter();
     renderInvoiceStatusList();
+    renderDrafterSummary();
   } catch (e) {
     document.getElementById("invstat-count").textContent = "";
     showAlert(alertEl, "error", e.message && e.message !== "Failed to fetch" ? e.message : "Could not connect to server.");
@@ -3093,6 +3101,56 @@ function buildInvoiceStatusCard(b) {
   return card;
 }
 
+// ---------------- DRAFT PAYMENT MAILS (runs the n8n workflow) ----------------
+// Same rule as the n8n "Prepare Bills" node: Mail = Pending AND invoice uploaded.
+function drafterReadyBills() { return (invoiceBills || []).filter(b => b.mail === "Pending" && b.fileId); }
+
+function renderDrafterSummary() {
+  const summary = document.getElementById("drafter-summary");
+  const btn = document.getElementById("btn-run-drafter");
+  if (!invoiceBills) return;
+  const ready = drafterReadyBills();
+  const vendors = new Set(ready.map(b => b.vendor)).size;
+  const missing = invoiceBills.filter(b => b.mail === "Pending" && !b.fileId).length;
+  summary.innerHTML = ready.length
+    ? escHtml(ready.length + " Pending bill(s) from " + vendors + " vendor(s) ready - " + formatINR(ready.reduce((s, b) => s + b.total, 0)))
+    : "No Pending bills with an invoice attached.";
+  if (missing) summary.innerHTML += '<br><span class="inv-nofile">&#9888;&#65039; ' + missing + ' Pending bill(s) have no invoice yet and will be skipped.</span>';
+  btn.disabled = ready.length === 0;
+  btn.textContent = ready.length ? "Create " + vendors + " Gmail Draft(s)" : "Create Gmail Drafts";
+}
+
+async function runPaymentDrafter() {
+  const ready = drafterReadyBills();
+  if (!ready.length) return;
+  const vendors = new Set(ready.map(b => b.vendor)).size;
+  if (!confirm("Create " + vendors + " Gmail draft(s) for " + ready.length + " Pending bill(s)?\n\nThese bills will be marked \"Approval Pending\".")) return;
+
+  const alertEl = document.getElementById("alert-drafter");
+  const btn = document.getElementById("btn-run-drafter");
+  hideAlert(alertEl);
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Creating drafts...';
+  showBusyOverlay();
+  try {
+    const data = await callApi("runPaymentDrafter", { username: currentUser });
+    if (data.success) {
+      showAlert(alertEl, data.timedOut ? "info" : "success", data.message);
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      await loadInvoiceBills(true);   // pick up the new "Approval Pending" statuses
+      renderInvoiceStatusList();
+      renderDrafterSummary();
+    } else {
+      showAlert(alertEl, "error", data.error || "Could not create drafts.");
+      btn.disabled = false; btn.textContent = "Create Gmail Drafts";
+    }
+  } catch (e) {
+    showAlert(alertEl, "error", "Could not connect to server.");
+    btn.disabled = false; btn.textContent = "Create Gmail Drafts";
+  } finally {
+    hideBusyOverlay();
+  }
+}
+
 async function saveBillStatus(b, sel, btn) {
   const newStatus = sel.value;
   if (newStatus === b.mail) { showToast("Status is already " + newStatus + "."); return; }
@@ -3105,6 +3163,7 @@ async function saveBillStatus(b, sel, btn) {
       b.mail = data.status;
       showToast(b.billNumber + " \u2192 " + data.status);
       renderInvoiceStatusList();
+      renderDrafterSummary();
       updateUploadInvoiceBadge(invoiceBills.filter(billNeedsInvoice).length);
     } else {
       if (data.conflict && data.currentStatus) { b.mail = data.currentStatus; renderInvoiceStatusList(); }
